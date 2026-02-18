@@ -18,7 +18,7 @@ function MessageCard({ message }) {
       return (
         <div className="space-y-3">
           {message.content.map((block, idx) => (
-            <ContentBlock key={idx} block={block} />
+            <ContentBlock key={idx} block={block} role={message.role} />
           ))}
         </div>
       );
@@ -47,17 +47,36 @@ function MessageCard({ message }) {
   );
 }
 
-function ContentBlock({ block }) {
+function ContentBlock({ block, role }) {
+  // 根据role选择颜色样式：user用蓝色，assistant用绿色
+  const isUser = role === 'user';
+
   if (isTextMessage(block)) {
+    const bgClass = isUser
+      ? 'bg-blue-50 dark:bg-blue-900/20'
+      : 'bg-green-50 dark:bg-green-900/20';
+    const borderClass = isUser
+      ? 'border-blue-200 dark:border-blue-800'
+      : 'border-green-200 dark:border-green-800';
+    const iconColorClass = isUser
+      ? 'text-blue-600 dark:text-blue-400'
+      : 'text-green-600 dark:text-green-400';
+    const titleColorClass = isUser
+      ? 'text-blue-800 dark:text-blue-200'
+      : 'text-green-800 dark:text-green-200';
+    const contentColorClass = isUser
+      ? 'text-blue-900 dark:text-blue-100'
+      : 'text-green-900 dark:text-green-100';
+
     return (
-      <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+      <div className={`p-3 ${bgClass} rounded-lg border ${borderClass}`}>
         <div className="flex items-center gap-2 mb-2">
-          <FileText className="w-4 h-4 text-green-600 dark:text-green-400" />
-          <span className="text-sm font-medium text-green-800 dark:text-green-200">
+          <FileText className={`w-4 h-4 ${iconColorClass}`} />
+          <span className={`text-sm font-medium ${titleColorClass}`}>
             文本内容
           </span>
         </div>
-        <div className="text-sm whitespace-pre-wrap break-words text-green-900 dark:text-green-100">
+        <div className={`text-sm whitespace-pre-wrap break-words ${contentColorClass}`}>
           {block.text}
         </div>
       </div>
