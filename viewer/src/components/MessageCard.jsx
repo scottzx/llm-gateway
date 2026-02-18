@@ -1,9 +1,8 @@
 import { getRoleBadgeClass, isToolUseMessage, isToolResultMessage, isTextMessage, isImageMessage } from '../lib/utils';
 import { Badge } from './ui/badge';
-import { Code, Image as ImageIcon, FileText, Languages } from 'lucide-react';
+import { Code, Image as ImageIcon, FileText, Languages, Undo2, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import ToolInfoDialog from './ToolInfoDialog';
-import TranslationDialog from './TranslationDialog';
 
 function MessageCard({ message }) {
   const renderContent = () => {
@@ -49,8 +48,14 @@ function MessageCard({ message }) {
 }
 
 function ContentBlock({ block, role }) {
-  // 翻译对话框状态
-  const [translationOpen, setTranslationOpen] = useState(false);
+  // 翻译状态管理
+  const [translationState, setTranslationState] = useState({
+    isTranslated: false,
+    isLoading: false,
+    error: null,
+    translatedText: '',
+    fromCache: false
+  });
 
   // 获取可翻译的文本内容
   const getTranslatableText = () => {
@@ -76,14 +81,67 @@ function ContentBlock({ block, role }) {
     return JSON.stringify(block, null, 2);
   };
 
+  // 翻译按钮处理
+  const handleTranslate = async () => {
+    // 防止重复点击
+    if (translationState.isLoading) return;
+
+    // 如果已翻译，切换回原文
+    if (translationState.isTranslated) {
+      setTranslationState(prev => ({ ...prev, isTranslated: false }));
+      return;
+    }
+
+    // 开始翻译
+    setTranslationState(prev => ({ ...prev, isLoading: true, error: null }));
+
+    try {
+      // 调用翻译 API（自动检查缓存 + 翻译）
+      const response = await fetch('/api/translation/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ block })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setTranslationState({
+          isTranslated: true,
+          isLoading: false,
+          translatedText: data.translatedText,
+          fromCache: data.fromCache,
+          error: null
+        });
+      } else {
+        throw new Error(data.error || '翻译失败');
+      }
+    } catch (err) {
+      // 显示错误提示
+      alert(`翻译失败：${err.message}`);
+      setTranslationState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: err.message
+      }));
+    }
+  };
+
   // 渲染翻译按钮
-  const renderTranslateButton = (blockType) => (
+  const renderTranslateButton = () => (
     <button
-      onClick={() => setTranslationOpen(true)}
-      className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent rounded"
-      title="翻译"
+      onClick={handleTranslate}
+      disabled={translationState.isLoading}
+      className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent rounded disabled:opacity-50"
+      title={translationState.isTranslated ? "显示原文" : "翻译"}
     >
-      <Languages className="w-4 h-4" />
+      {translationState.isLoading ? (
+        <Loader2 className="w-4 h-4 animate-spin" />
+      ) : translationState.isTranslated ? (
+        <Undo2 className="w-4 h-4" />
+      ) : (
+        <Languages className="w-4 h-4" />
+      )}
     </button>
   );
 
@@ -107,74 +165,81 @@ function ContentBlock({ block, role }) {
       ? 'text-blue-900 dark:text-blue-100'
       : 'text-green-900 dark:text-green-100';
 
+    const displayText = translationState.isTranslated
+      ? translationState.translatedText
+      : block.text;
+
     return (
       <div className={`p-3 ${bgClass} rounded-lg border ${borderClass} group relative`}>
         <div className="flex items-center gap-2 mb-2">
           <FileText className={`w-4 h-4 ${iconColorClass}`} />
           <span className={`text-sm font-medium ${titleColorClass}`}>
-            文本内容
+            {translationState.isTranslated ? '翻译结果' : '文本内容'}
           </span>
-          {renderTranslateButton('text')}
+          {renderTranslateButton()}
+          {translationState.isTranslated && translationState.fromCache && (
+            <Badge variant="secondary" className="text-xs">来自缓存</Badge>
+          )}
         </div>
         <div className={`text-sm whitespace-pre-wrap break-words ${contentColorClass}`}>
-          {block.text}
+          {displayText}
         </div>
-        <TranslationDialog
-          block={block}
-          blockType="text"
-          originalText={getTranslatableText()}
-          open={translationOpen}
-          onOpenChange={setTranslationOpen}
-        />
       </div>
     );
   }
 
   if (isToolUseMessage(block)) {
+    const displayContent = translationState.isTranslated
+      ? translationState.translatedText
+      : block.input
+        ? JSON.stringify(block.input, null, 2)
+        : '';
+
     return (
       <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800 group relative">
         <div className="flex items-center gap-2 mb-2">
           <Code className="w-4 h-4 text-purple-600 dark:text-purple-400" />
           <span className="font-mono text-sm font-medium text-purple-800 dark:text-purple-200">
-            tool_use: {block.name}
+            {translationState.isTranslated ? '翻译结果' : `tool_use: ${block.name}`}
           </span>
-          {renderTranslateButton('tool_use')}
+          {renderTranslateButton()}
+          {translationState.isTranslated && translationState.fromCache && (
+            <Badge variant="secondary" className="text-xs">来自缓存</Badge>
+          )}
         </div>
-        {block.input && (
-          <pre className="text-xs overflow-x-auto bg-purple-100 dark:bg-purple-900/40 p-2 rounded mt-2">
-            {JSON.stringify(block.input, null, 2)}
-          </pre>
-        )}
-        <TranslationDialog
-          block={block}
-          blockType="tool_use"
-          originalText={getTranslatableText()}
-          open={translationOpen}
-          onOpenChange={setTranslationOpen}
-        />
+        <pre className="text-xs overflow-x-auto bg-purple-100 dark:bg-purple-900/40 p-2 rounded mt-2">
+          {displayContent}
+        </pre>
       </div>
     );
   }
 
   if (isToolResultMessage(block)) {
+    const displayContent = translationState.isTranslated
+      ? translationState.translatedText
+      : block.content;
+
     return (
       <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800 group relative">
         <div className="flex items-center gap-2 mb-2">
           <Code className="w-4 h-4 text-orange-600 dark:text-orange-400" />
           <span className="font-mono text-sm font-medium text-orange-800 dark:text-orange-200">
-            tool_result: {block.tool_use_id}
+            {translationState.isTranslated ? '翻译结果' : `tool_result: ${block.tool_use_id}`}
           </span>
-          {renderTranslateButton('tool_result')}
+          {renderTranslateButton()}
+          {translationState.isTranslated && translationState.fromCache && (
+            <Badge variant="secondary" className="text-xs">来自缓存</Badge>
+          )}
         </div>
-        {block.content && (
+        {displayContent && (
           <div className="text-xs text-muted-foreground">
-            {typeof block.content === 'string' ? (
+            {typeof displayContent === 'string' ? (
               <div className="max-h-32 overflow-y-auto whitespace-pre-wrap">
-                {block.content}
+                {displayContent}
               </div>
             ) : (
               <pre className="overflow-x-auto max-h-32">
-                {JSON.stringify(block.content, null, 2)}
+                {JSON.stringify(displayContent, null, 2)}
               </pre>
             )}
           </div>
@@ -184,39 +249,39 @@ function ContentBlock({ block, role }) {
             (工具执行出错)
           </span>
         )}
-        <TranslationDialog
-          block={block}
-          blockType="tool_result"
-          originalText={getTranslatableText()}
-          open={translationOpen}
-          onOpenChange={setTranslationOpen}
-        />
       </div>
     );
   }
 
   if (isImageMessage(block)) {
+    const displayContent = translationState.isTranslated
+      ? translationState.translatedText
+      : block.source?.type
+        ? `类型: ${block.source.type}`
+        : '';
+
     return (
       <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 group relative">
         <div className="flex items-center gap-2">
           <ImageIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           <span className="text-sm text-blue-800 dark:text-blue-200">
-            图片内容
+            {translationState.isTranslated ? '翻译结果' : '图片内容'}
           </span>
-          {block.source?.type && (
+          {!translationState.isTranslated && block.source?.type && (
             <span className="text-xs text-muted-foreground">
               ({block.source.type})
             </span>
           )}
-          {renderTranslateButton('image')}
+          {renderTranslateButton()}
+          {translationState.isTranslated && translationState.fromCache && (
+            <Badge variant="secondary" className="text-xs">来自缓存</Badge>
+          )}
         </div>
-        <TranslationDialog
-          block={block}
-          blockType="image"
-          originalText={getTranslatableText()}
-          open={translationOpen}
-          onOpenChange={setTranslationOpen}
-        />
+        {translationState.isTranslated && (
+          <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+            {displayContent}
+          </div>
+        )}
       </div>
     );
   }
@@ -224,48 +289,109 @@ function ContentBlock({ block, role }) {
   return (
     <div className="p-3 bg-muted rounded-lg group relative">
       <pre className="text-xs overflow-x-auto">
-        {JSON.stringify(block, null, 2)}
+        {translationState.isTranslated
+          ? translationState.translatedText
+          : JSON.stringify(block, null, 2)}
       </pre>
-      {renderTranslateButton('unknown')}
-      <TranslationDialog
-        block={block}
-        blockType="unknown"
-        originalText={getTranslatableText()}
-        open={translationOpen}
-        onOpenChange={setTranslationOpen}
-      />
+      {renderTranslateButton()}
+      {translationState.isTranslated && translationState.fromCache && (
+        <Badge variant="secondary" className="text-xs mt-2">来自缓存</Badge>
+      )}
     </div>
   );
 }
 
 function SystemPromptItem({ item, idx }) {
-  const [translationOpen, setTranslationOpen] = useState(false);
+  const [translationState, setTranslationState] = useState({
+    isTranslated: false,
+    isLoading: false,
+    error: null,
+    translatedText: '',
+    fromCache: false
+  });
 
-  // 构造与 text block 相同的结构，用于翻译
-  const block = { type: 'text', text: item.text };
+  // 翻译按钮处理
+  const handleTranslate = async () => {
+    // 防止重复点击
+    if (translationState.isLoading) return;
+
+    // 如果已翻译，切换回原文
+    if (translationState.isTranslated) {
+      setTranslationState(prev => ({ ...prev, isTranslated: false }));
+      return;
+    }
+
+    // 开始翻译
+    setTranslationState(prev => ({ ...prev, isLoading: true, error: null }));
+
+    try {
+      // 构造与 text block 相同的结构
+      const block = { type: 'text', text: item.text };
+
+      // 调用翻译 API（自动检查缓存 + 翻译）
+      const response = await fetch('/api/translation/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ block })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setTranslationState({
+          isTranslated: true,
+          isLoading: false,
+          translatedText: data.translatedText,
+          fromCache: data.fromCache,
+          error: null
+        });
+      } else {
+        throw new Error(data.error || '翻译失败');
+      }
+    } catch (err) {
+      // 显示错误提示
+      alert(`翻译失败：${err.message}`);
+      setTranslationState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: err.message
+      }));
+    }
+  };
+
+  const displayText = translationState.isTranslated
+    ? translationState.translatedText
+    : item.text;
 
   return (
     <div key={idx} className="p-3 bg-background rounded-lg border group relative">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-muted-foreground">系统提示词 #{idx + 1}</span>
-        <button
-          onClick={() => setTranslationOpen(true)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent rounded"
-          title="翻译"
-        >
-          <Languages className="w-3.5 h-3.5" />
-        </button>
+        <span className="text-xs text-muted-foreground">
+          {translationState.isTranslated ? '翻译结果' : `系统提示词 #${idx + 1}`}
+        </span>
+        <div className="flex items-center gap-1">
+          {translationState.isTranslated && translationState.fromCache && (
+            <Badge variant="secondary" className="text-xs">来自缓存</Badge>
+          )}
+          <button
+            onClick={handleTranslate}
+            disabled={translationState.isLoading}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent rounded disabled:opacity-50"
+            title={translationState.isTranslated ? "显示原文" : "翻译"}
+          >
+            {translationState.isLoading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : translationState.isTranslated ? (
+              <Undo2 className="w-3.5 h-3.5" />
+            ) : (
+              <Languages className="w-3.5 h-3.5" />
+            )}
+          </button>
+        </div>
       </div>
       <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-        {item.text}
+        {displayText}
       </p>
-      <TranslationDialog
-        block={block}
-        blockType="text"
-        originalText={item.text}
-        open={translationOpen}
-        onOpenChange={setTranslationOpen}
-      />
     </div>
   );
 }
