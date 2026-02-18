@@ -32,6 +32,10 @@ if (LOG_ENABLED) {
 const path = require('path');
 registerRoutes(app);
 
+// 注册翻译 API 路由
+const { registerTranslationRoutes } = require('./translation-api');
+registerTranslationRoutes(app);
+
 // 静态文件服务 - Viewer 应用（不需要认证）
 app.use('/viewer', express.static(path.join(__dirname, '../viewer/dist')));
 
