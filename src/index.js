@@ -15,9 +15,9 @@ const CHAT_LOG_DIR = process.env.CHAT_LOG_DIR || 'logs';
 // 初始化聊天日志记录器
 const chatLogger = CHAT_LOG_ENABLED ? new ChatLogger(CHAT_LOG_DIR) : null;
 
-// 中间件：解析 JSON 请求体
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// 中间件：解析 JSON 请求体（不限制大小，由上游 API 处理）
+app.use(express.json({ limit: Infinity }));
+app.use(express.urlencoded({ extended: true, limit: Infinity }));
 
 // 请求日志中间件
 if (LOG_ENABLED) {
