@@ -1,6 +1,8 @@
 import { getRoleBadgeClass, isToolUseMessage, isToolResultMessage, isTextMessage, isImageMessage } from '../lib/utils';
 import { Badge } from './ui/badge';
 import { Code, Image as ImageIcon, FileText } from 'lucide-react';
+import { useState } from 'react';
+import ToolInfoDialog from './ToolInfoDialog';
 
 function MessageCard({ message }) {
   const renderContent = () => {
@@ -139,6 +141,8 @@ function ContentBlock({ block }) {
 }
 
 function MessageList({ messages, tools }) {
+  const [selectedTool, setSelectedTool] = useState(null);
+
   if (messages.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -157,7 +161,12 @@ function MessageList({ messages, tools }) {
           </h4>
           <div className="flex flex-wrap gap-2">
             {tools.map((tool) => (
-              <Badge key={tool.name} variant="outline" className="font-mono text-xs">
+              <Badge
+                key={tool.name}
+                variant="outline"
+                className="font-mono text-xs cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+                onClick={() => setSelectedTool(tool)}
+              >
                 {tool.name}
               </Badge>
             ))}
@@ -171,6 +180,15 @@ function MessageList({ messages, tools }) {
           <MessageCard message={msg} />
         </div>
       ))}
+
+      {/* 工具详情弹窗 */}
+      {selectedTool && (
+        <ToolInfoDialog
+          tool={selectedTool}
+          open={!!selectedTool}
+          onOpenChange={(open) => !open && setSelectedTool(null)}
+        />
+      )}
     </div>
   );
 }
