@@ -52,6 +52,7 @@ function ContextDetailPanel({ entry, entries }) {
               <MessageList
                 messages={entry.requestBody?.messages || []}
                 tools={entry.requestBody?.tools || []}
+                system={entry.requestBody?.system || []}
               />
             </CardContent>
           </Card>

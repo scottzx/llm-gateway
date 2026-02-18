@@ -140,7 +140,7 @@ function ContentBlock({ block }) {
   );
 }
 
-function MessageList({ messages, tools }) {
+function MessageList({ messages, tools, system }) {
   const [selectedTool, setSelectedTool] = useState(null);
 
   if (messages.length === 0) {
@@ -153,6 +153,24 @@ function MessageList({ messages, tools }) {
 
   return (
     <div className="space-y-3">
+      {/* System 模块 */}
+      {system && system.length > 0 && (
+        <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+          <h4 className="text-sm font-medium mb-2">
+            系统提示词 ({system.length})
+          </h4>
+          <div className="space-y-2">
+            {system.map((item, idx) => (
+              <div key={idx} className="p-3 bg-background rounded-lg border">
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                  {item.text}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 可用工具列表 */}
       {tools && tools.length > 0 && (
         <div className="mb-4 p-3 bg-muted/50 rounded-lg">
