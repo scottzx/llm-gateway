@@ -238,6 +238,38 @@ function ContentBlock({ block, role }) {
   );
 }
 
+function SystemPromptItem({ item, idx }) {
+  const [translationOpen, setTranslationOpen] = useState(false);
+
+  // 构造与 text block 相同的结构，用于翻译
+  const block = { type: 'text', text: item.text };
+
+  return (
+    <div key={idx} className="p-3 bg-background rounded-lg border group relative">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs text-muted-foreground">系统提示词 #{idx + 1}</span>
+        <button
+          onClick={() => setTranslationOpen(true)}
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent rounded"
+          title="翻译"
+        >
+          <Languages className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+        {item.text}
+      </p>
+      <TranslationDialog
+        block={block}
+        blockType="text"
+        originalText={item.text}
+        open={translationOpen}
+        onOpenChange={setTranslationOpen}
+      />
+    </div>
+  );
+}
+
 function MessageList({ messages, tools, system }) {
   const [selectedTool, setSelectedTool] = useState(null);
 
@@ -259,11 +291,7 @@ function MessageList({ messages, tools, system }) {
           </h4>
           <div className="space-y-2">
             {system.map((item, idx) => (
-              <div key={idx} className="p-3 bg-background rounded-lg border">
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {item.text}
-                </p>
-              </div>
+              <SystemPromptItem key={idx} item={item} idx={idx} />
             ))}
           </div>
         </div>

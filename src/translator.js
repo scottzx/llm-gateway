@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const axios = require('axios');
 const { getDatabase } = require('./database');
 
 /**
@@ -8,12 +8,15 @@ const VALID_TYPES = ['text', 'tool_use', 'tool_result', 'image'];
 
 /**
  * 翻译服务类
- * 提供翻译功能和 CLI 调用
+ * 提供翻译功能，使用 ModelScope API
  */
 class TranslationService {
   constructor() {
     this.db = getDatabase();
     this.timeout = parseInt(process.env.TRANSLATION_TIMEOUT) || 30000; // 30秒超时
+    this.apiEndpoint = process.env.MODELSCOPE_API_ENDPOINT || 'https://api-inference.modelscope.cn/v1/chat/completions';
+    this.model = process.env.TRANSLATION_MODEL || 'Qwen/Qwen2.5-72B-Instruct';
+    this.apiToken = process.env.API_TOKEN;
   }
 
   /**
@@ -61,55 +64,63 @@ class TranslationService {
   }
 
   /**
-   * 调用 claude CLI 执行翻译
+   * 调用 ModelScope API 执行翻译
    * @param {string} text - 待翻译的文本
    * @returns {Promise<string>} 翻译结果
    */
-  translateWithCLI(text) {
-    return new Promise((resolve, reject) => {
-      // 构建翻译 prompt
-      const prompt = `Please translate the following text into Chinese. If the text is already in Chinese, return it as is. Only return the translated text, no explanation:\n\n${text}`;
+  async translateWithAPI(text) {
+    // 构建翻译 prompt
+    const translatePrompt = `Please translate the following text into Chinese. If the text is already in Chinese, return it as is. Only return the translated text, no explanation:\n\n${text}`;
 
-      const claude = spawn('claude', ['-p', prompt], {
-        stdio: ['ignore', 'pipe', 'pipe']
+    try {
+      const response = await axios({
+        method: 'POST',
+        url: this.apiEndpoint,
+        headers: {
+          'Authorization': `Bearer ${this.apiToken}`,
+          'Content-Type': 'application/json'
+        },
+        data: {
+          model: this.model,
+          messages: [
+            {
+              role: 'user',
+              content: [{ type: 'text', text: translatePrompt }]
+            }
+          ],
+          max_tokens: 4096,
+          temperature: 0.3,
+          stream: false
+        },
+        timeout: this.timeout
       });
 
-      let stdout = '';
-      let stderr = '';
-
-      const timeoutId = setTimeout(() => {
-        claude.kill();
-        reject(new Error('Translation timeout (30s)'));
-      }, this.timeout);
-
-      claude.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      claude.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      claude.on('close', (code) => {
-        clearTimeout(timeoutId);
-
-        if (code === 0) {
-          const result = stdout.trim();
-          if (result) {
-            resolve(result);
-          } else {
-            reject(new Error('Empty translation result'));
-          }
+      // ModelScope API 响应格式：response.data.choices[0].message.content
+      if (response.data && response.data.choices && response.data.choices[0]) {
+        const translatedText = response.data.choices[0].message.content;
+        if (translatedText && translatedText.trim().length > 0) {
+          return translatedText.trim();
         } else {
-          reject(new Error(`Claude CLI failed with code ${code}: ${stderr}`));
+          throw new Error('Empty translation result');
         }
-      });
-
-      claude.on('error', (error) => {
-        clearTimeout(timeoutId);
-        reject(new Error(`Failed to spawn claude CLI: ${error.message}`));
-      });
-    });
+      } else {
+        throw new Error('Invalid API response format');
+      }
+    } catch (error) {
+      // 更详细的错误处理
+      if (error.response) {
+        // API 返回了错误响应
+        const status = error.response.status;
+        const data = error.response.data;
+        throw new Error(`API error ${status}: ${JSON.stringify(data)}`);
+      } else if (error.request) {
+        // 请求已发出但没有收到响应
+        throw new Error(`API request timeout or network error: ${error.message}`);
+      } else {
+        // 其他错误
+        throw new Error(`Translation failed: ${error.message}`);
+      }
+    }
   }
 
   /**
@@ -154,7 +165,7 @@ class TranslationService {
 
     // 执行翻译
     try {
-      const translatedText = await this.translateWithCLI(text);
+      const translatedText = await this.translateWithAPI(text);
 
       // 保存到数据库
       this.db.saveTranslation({
