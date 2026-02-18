@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const ChatLogger = require('./logger');
+const { registerRoutes } = require('./api');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,6 +27,13 @@ if (LOG_ENABLED) {
     next();
   });
 }
+
+// 注册 API 路由（不需要认证）
+const path = require('path');
+registerRoutes(app);
+
+// 静态文件服务 - Viewer 应用（不需要认证）
+app.use('/viewer', express.static(path.join(__dirname, '../viewer/dist')));
 
 // 认证中间件
 const authMiddleware = (req, res, next) => {
