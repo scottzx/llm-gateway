@@ -3,7 +3,8 @@ import { fetchLogFiles, fetchLogData } from './lib/api';
 import ConversationTimeline from './components/ConversationTimeline';
 import ContextDetailPanel from './components/ContextDetailPanel';
 import TokenStats from './components/TokenStats';
-import { FileText, AlertCircle, Loader2 } from 'lucide-react';
+import TokenStatsDialog from './components/TokenStatsDialog';
+import { FileText, AlertCircle, Loader2, BarChart3 } from 'lucide-react';
 
 function App() {
   const [logFiles, setLogFiles] = useState([]);
@@ -12,6 +13,7 @@ function App() {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   // 加载日志文件列表
   useEffect(() => {
@@ -154,6 +156,16 @@ function App() {
               <>
                 {/* Token 统计栏 */}
                 <div className="border-b bg-muted/30 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold">Token 统计</h3>
+                    <button
+                      onClick={() => setDialogOpen(true)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-background hover:bg-muted transition-colors"
+                    >
+                      <BarChart3 className="w-4 h-4" />
+                      详细图表
+                    </button>
+                  </div>
                   <TokenStats
                     currentEntry={selectedEntry}
                     totalStats={totalStats}
@@ -191,6 +203,13 @@ function App() {
       <footer className="border-t bg-card py-2 px-4 text-xs text-muted-foreground text-center">
         LLM Context Viewer - 帮助开发者理解 LLM 对话上下文的交互过程
       </footer>
+
+      {/* Token 统计弹窗 */}
+      <TokenStatsDialog
+        entries={entries}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
     </div>
   );
 }
