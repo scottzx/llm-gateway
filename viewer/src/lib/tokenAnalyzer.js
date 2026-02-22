@@ -258,6 +258,8 @@ export function analyzeEntryTokens(entry) {
     roleSum: 0,
     timestamp: entry.timestamp || null,
     hasAccurateData: false,
+    inputTokens: entry.inputTokens || 0,      // Preserve from entry
+    outputTokens: entry.outputTokens || 0,    // Preserve from entry
   };
 
   const requestBody = entry.requestBody;
@@ -314,7 +316,12 @@ export function analyzeEntryTokens(entry) {
 
   // 5. 更新总量计算
   result.roleSum = result.user + result.assistant + result.system + result.systemReminder + result.tool + result.toolsReminder;
-  if (!result.hasAccurateData) {
+
+  // Prefer accurate total when available
+  if (result.inputTokens > 0 || result.outputTokens > 0) {
+    result.total = result.inputTokens + result.outputTokens;
+    result.hasAccurateData = true;
+  } else if (!result.hasAccurateData) {
     result.total = result.roleSum;
   }
 
@@ -385,5 +392,57 @@ export function calculateSummaryStats(tokenData) {
       tool: totals.tool,
       toolsReminder: totals.toolsReminder,
     },
+  };
+}
+
+/**
+ * Calculate unified total statistics from entries
+ * Single source of truth for all token calculations
+ *
+ * @param {Array} entries - Array of log entries
+ * @returns {Object} Comprehensive statistics object
+ */
+export function calculateTotalStats(entries) {
+  if (!entries || !Array.isArray(entries) || entries.length === 0) {
+    return {
+      totalTokens: 0,
+      totalInputTokens: 0,
+      totalOutputTokens: 0,
+      avgTokens: 0,
+      maxTokens: 0,
+      minTokens: 0,
+      byRole: { user: 0, assistant: 0, system: 0, systemReminder: 0, tool: 0, toolsReminder: 0 },
+      roleSum: 0,
+      perRound: [],
+      hasAccurateData: false,
+      entryCount: 0,
+    };
+  }
+
+  // Analyze each entry to get per-round data with role breakdown
+  const perRoundData = analyzeTokensByRole(entries);
+
+  // Calculate summary statistics using existing function
+  const summary = calculateSummaryStats(perRoundData);
+
+  // Calculate input/output totals
+  // 总输入 = 角色分布之和（roleSum），包含所有输入角色的 tokens
+  const totalInputTokens = summary.roleSum;
+  const totalOutputTokens = entries.reduce((sum, entry) => sum + (entry.outputTokens || 0), 0);
+
+  // 总计 = 总输入 + 总输出
+  const totalTokens = totalInputTokens + totalOutputTokens;
+
+  // Check if any entry has accurate data
+  const hasAccurateData = perRoundData.some(item => item.hasAccurateData);
+
+  return {
+    ...summary,
+    totalTokens,
+    totalInputTokens,
+    totalOutputTokens,
+    perRound: perRoundData,
+    hasAccurateData,
+    entryCount: entries.length,
   };
 }

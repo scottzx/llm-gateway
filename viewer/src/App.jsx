@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchLogFiles, fetchLogData } from './lib/api';
+import { calculateTotalStats } from './lib/tokenAnalyzer';
 import ConversationTimeline from './components/ConversationTimeline';
 import ContextDetailPanel from './components/ContextDetailPanel';
 import TokenStats from './components/TokenStats';
@@ -71,15 +72,8 @@ function App() {
     setSelectedEntry(entry);
   }, []);
 
-  // 计算总 Token 统计
-  const totalStats = entries.reduce(
-    (acc, entry) => ({
-      inputTokens: acc.inputTokens + (entry.inputTokens || 0),
-      outputTokens: acc.outputTokens + (entry.outputTokens || 0),
-      totalTokens: acc.totalTokens + (entry.inputTokens || 0) + (entry.outputTokens || 0),
-    }),
-    { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
-  );
+  // 计算总 Token 统计 - Single source of truth
+  const totalStats = useMemo(() => calculateTotalStats(entries), [entries]);
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -206,7 +200,7 @@ function App() {
 
       {/* Token 统计弹窗 */}
       <TokenStatsDialog
-        entries={entries}
+        totalStats={totalStats}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />

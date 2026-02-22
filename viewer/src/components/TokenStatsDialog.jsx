@@ -7,9 +7,8 @@ import {
   DialogClose,
 } from './ui/dialog';
 import { formatTokens } from '../lib/utils';
-import { analyzeTokensByRole, calculateSummaryStats } from '../lib/tokenAnalyzer';
 import RoleTokenBarChart from './charts/RoleTokenBarChart';
-import { BarChart3, Database, TrendingUp, Activity, Info } from 'lucide-react';
+import { BarChart3, Database, TrendingUp, Activity, Info, Zap } from 'lucide-react';
 
 /**
  * 统计卡片组件
@@ -30,20 +29,24 @@ function StatCard({ icon, label, value, color, bgColor }) {
  * TokenStatsDialog 组件
  * 展示 token 使用统计的可视化弹窗
  *
- * @param {Array} entries - 所有日志条目
+ * @param {Object} totalStats - 统一计算的总统计数据
  * @param {boolean} open - 弹窗是否打开
  * @param {Function} onOpenChange - 打开状态变化回调
  */
-export default function TokenStatsDialog({ entries, open, onOpenChange }) {
-  // 分析 token 数据并计算统计摘要
-  const { tokenData, summary } = useMemo(() => {
-    const data = analyzeTokensByRole(entries);
-    const stats = calculateSummaryStats(data);
-    return { tokenData: data, summary: stats };
-  }, [entries]);
-
-  // 检查是否有准确数据
-  const hasAccurateData = tokenData.some(item => item.hasAccurateData);
+export default function TokenStatsDialog({ totalStats, open, onOpenChange }) {
+  // 从 totalStats 中解构所需数据
+  const {
+    totalTokens,
+    avgTokens,
+    maxTokens,
+    minTokens,
+    byRole,
+    roleSum,
+    perRound: tokenData,
+    hasAccurateData,
+    totalInputTokens,
+    totalOutputTokens,
+  } = totalStats;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -62,30 +65,48 @@ export default function TokenStatsDialog({ entries, open, onOpenChange }) {
             <StatCard
               icon={<Database className="w-4 h-4" />}
               label="总计"
-              value={formatTokens(summary.totalTokens)}
+              value={formatTokens(totalTokens)}
               color="text-purple-600 dark:text-purple-400"
               bgColor="bg-purple-100 dark:bg-purple-900/20"
             />
             <StatCard
               icon={<Activity className="w-4 h-4" />}
               label="平均"
-              value={formatTokens(summary.avgTokens)}
+              value={formatTokens(avgTokens)}
               color="text-orange-600 dark:text-orange-400"
               bgColor="bg-orange-100 dark:bg-orange-900/20"
             />
             <StatCard
               icon={<TrendingUp className="w-4 h-4" />}
               label="最大"
-              value={formatTokens(summary.maxTokens)}
+              value={formatTokens(maxTokens)}
               color="text-green-600 dark:text-green-400"
               bgColor="bg-green-100 dark:bg-green-900/20"
             />
             <StatCard
               icon={<TrendingUp className="w-4 h-4" />}
               label="最小"
-              value={formatTokens(summary.minTokens)}
+              value={formatTokens(minTokens)}
               color="text-blue-600 dark:text-blue-400"
               bgColor="bg-blue-100 dark:bg-blue-900/20"
+            />
+          </div>
+
+          {/* Input/Output 分离统计 */}
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            <StatCard
+              icon={<TrendingUp className="w-4 h-4" />}
+              label="总输入"
+              value={formatTokens(totalInputTokens)}
+              color="text-blue-600 dark:text-blue-400"
+              bgColor="bg-blue-100 dark:bg-blue-900/20"
+            />
+            <StatCard
+              icon={<Zap className="w-4 h-4" />}
+              label="总输出"
+              value={formatTokens(totalOutputTokens)}
+              color="text-green-600 dark:text-green-400"
+              bgColor="bg-green-100 dark:bg-green-900/20"
             />
           </div>
 
@@ -96,66 +117,66 @@ export default function TokenStatsDialog({ entries, open, onOpenChange }) {
               <div className="text-center p-2 bg-gray-300 dark:bg-gray-600 rounded">
                 <p className="text-xs text-muted-foreground">System</p>
                 <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">
-                  {formatTokens(summary.byRole.system)}
+                  {formatTokens(byRole.system)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {summary.roleSum > 0
-                    ? Math.round(summary.byRole.system / summary.roleSum * 100)
+                  {roleSum > 0
+                    ? Math.round(byRole.system / roleSum * 100)
                     : 0}%
                 </p>
               </div>
               <div className="text-center p-2 bg-gray-200 dark:bg-gray-700 rounded">
                 <p className="text-xs text-muted-foreground">System-Reminder</p>
                 <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">
-                  {formatTokens(summary.byRole.systemReminder)}
+                  {formatTokens(byRole.systemReminder)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {summary.roleSum > 0
-                    ? Math.round(summary.byRole.systemReminder / summary.roleSum * 100)
+                  {roleSum > 0
+                    ? Math.round(byRole.systemReminder / roleSum * 100)
                     : 0}%
                 </p>
               </div>
               <div className="text-center p-2 bg-gray-100 dark:bg-gray-800 rounded">
                 <p className="text-xs text-muted-foreground">Tools-Reminder</p>
                 <p className="text-lg font-semibold text-gray-500 dark:text-gray-400">
-                  {formatTokens(summary.byRole.toolsReminder)}
+                  {formatTokens(byRole.toolsReminder)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {summary.roleSum > 0
-                    ? Math.round(summary.byRole.toolsReminder / summary.roleSum * 100)
+                  {roleSum > 0
+                    ? Math.round(byRole.toolsReminder / roleSum * 100)
                     : 0}%
                 </p>
               </div>
               <div className="text-center p-2 bg-blue-100 dark:bg-blue-900/20 rounded">
                 <p className="text-xs text-muted-foreground">User</p>
                 <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-                  {formatTokens(summary.byRole.user)}
+                  {formatTokens(byRole.user)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {summary.roleSum > 0
-                    ? Math.round(summary.byRole.user / summary.roleSum * 100)
+                  {roleSum > 0
+                    ? Math.round(byRole.user / roleSum * 100)
                     : 0}%
                 </p>
               </div>
               <div className="text-center p-2 bg-green-100 dark:bg-green-900/20 rounded">
                 <p className="text-xs text-muted-foreground">Assistant</p>
                 <p className="text-lg font-semibold text-green-600 dark:text-green-400">
-                  {formatTokens(summary.byRole.assistant)}
+                  {formatTokens(byRole.assistant)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {summary.roleSum > 0
-                    ? Math.round(summary.byRole.assistant / summary.roleSum * 100)
+                  {roleSum > 0
+                    ? Math.round(byRole.assistant / roleSum * 100)
                     : 0}%
                 </p>
               </div>
               <div className="text-center p-2 bg-purple-100 dark:bg-purple-900/20 rounded">
                 <p className="text-xs text-muted-foreground">Tool</p>
                 <p className="text-lg font-semibold text-purple-600 dark:text-purple-400">
-                  {formatTokens(summary.byRole.tool)}
+                  {formatTokens(byRole.tool)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {summary.roleSum > 0
-                    ? Math.round(summary.byRole.tool / summary.roleSum * 100)
+                  {roleSum > 0
+                    ? Math.round(byRole.tool / roleSum * 100)
                     : 0}%
                 </p>
               </div>

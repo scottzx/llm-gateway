@@ -1,4 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { formatTokens } from '../../lib/utils';
 
 /**
  * 角色颜色配置
@@ -24,12 +25,47 @@ const CustomTooltip = ({ active, payload }) => {
 
   const data = payload[0].payload;
   const total = data.roleSum;
+  const inputOutputTotal = (data.inputTokens || 0) + (data.outputTokens || 0);
 
   return (
-    <div className="bg-background border border-border rounded-lg shadow-lg p-3 min-w-[200px]">
+    <div className="bg-background border border-border rounded-lg shadow-lg p-3 min-w-[250px]">
       <div className="text-sm font-semibold mb-2 pb-2 border-b">
         对话轮次 #{data.messageIndex + 1}
       </div>
+
+      {/* Input/Output Summary */}
+      <div className="space-y-1.5 mb-3 pb-3 border-b">
+        <div className="flex items-center justify-between gap-4">
+          <span className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-sm bg-blue-500" />
+            <span className="font-medium">输入</span>
+          </span>
+          <span className="font-mono font-medium text-blue-600">
+            {formatTokens(data.inputTokens || 0)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-sm bg-green-500" />
+            <span className="font-medium">输出</span>
+          </span>
+          <span className="font-mono font-medium text-green-600">
+            {formatTokens(data.outputTokens || 0)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-sm bg-purple-500" />
+            <span className="font-medium">总计</span>
+          </span>
+          <span className="font-mono font-medium text-purple-600">
+            {formatTokens(inputOutputTotal)}
+          </span>
+        </div>
+      </div>
+
+      {/* Role-based breakdown */}
+      <div className="text-xs text-muted-foreground mb-2">角色分布</div>
       <div className="space-y-1.5 text-xs">
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-2">
@@ -84,10 +120,6 @@ const CustomTooltip = ({ active, payload }) => {
           <span className="font-mono font-medium">
             {data.tool.toLocaleString()} ({total > 0 ? Math.round(data.tool / total * 100) : 0}%)
           </span>
-        </div>
-        <div className="pt-2 mt-2 border-t flex items-center justify-between font-semibold">
-          <span>总计</span>
-          <span className="font-mono">{total.toLocaleString()} tokens</span>
         </div>
       </div>
     </div>
