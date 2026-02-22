@@ -92,7 +92,7 @@ export default function TokenStatsDialog({ entries, open, onOpenChange }) {
           {/* 角色分布统计 */}
           <div className="border rounded-lg p-4">
             <h3 className="text-sm font-semibold mb-3">角色分布</h3>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-5 gap-3">
               <div className="text-center p-2 bg-blue-100 dark:bg-blue-900/20 rounded">
                 <p className="text-xs text-muted-foreground">User</p>
                 <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">
@@ -123,6 +123,17 @@ export default function TokenStatsDialog({ entries, open, onOpenChange }) {
                 <p className="text-xs text-muted-foreground">
                   {summary.totalTokens > 0
                     ? Math.round(summary.byRole.system / summary.totalTokens * 100)
+                    : 0}%
+                </p>
+              </div>
+              <div className="text-center p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded">
+                <p className="text-xs text-muted-foreground">System-Reminder</p>
+                <p className="text-lg font-semibold text-yellow-600 dark:text-yellow-400">
+                  {formatTokens(summary.byRole.systemReminder)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {summary.totalTokens > 0
+                    ? Math.round(summary.byRole.systemReminder / summary.totalTokens * 100)
                     : 0}%
                 </p>
               </div>
@@ -162,7 +173,8 @@ export default function TokenStatsDialog({ entries, open, onOpenChange }) {
                 </p>
               )}
               <p className="mt-1">
-                User 包含用户消息和 tool_result，Assistant 包含助手回复，System 包含系统提示词，
+                User 包含用户消息（不含 system-reminder），Assistant 包含助手回复，
+                System 包含系统提示词，System-Reminder 包含注入到用户消息中的系统提示，
                 Tool 包含 tool_use 调用。
               </p>
             </div>

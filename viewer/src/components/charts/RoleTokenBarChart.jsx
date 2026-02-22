@@ -8,6 +8,7 @@ const ROLE_COLORS = {
   user: '#3b82f6',    // 蓝色
   assistant: '#10b981', // 绿色
   system: '#6b7280',    // 灰色
+  systemReminder: '#f59e0b', // 黄色
   tool: '#8b5cf6',      // 紫色
 };
 
@@ -31,6 +32,24 @@ const CustomTooltip = ({ active, payload }) => {
       <div className="space-y-1.5 text-xs">
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: ROLE_COLORS.system }} />
+            System
+          </span>
+          <span className="font-mono font-medium">
+            {data.system.toLocaleString()} ({total > 0 ? Math.round(data.system / total * 100) : 0}%)
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: ROLE_COLORS.systemReminder }} />
+            System-Reminder
+          </span>
+          <span className="font-mono font-medium">
+            {data.systemReminder.toLocaleString()} ({total > 0 ? Math.round(data.systemReminder / total * 100) : 0}%)
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: ROLE_COLORS.user }} />
             User
           </span>
@@ -45,15 +64,6 @@ const CustomTooltip = ({ active, payload }) => {
           </span>
           <span className="font-mono font-medium">
             {data.assistant.toLocaleString()} ({total > 0 ? Math.round(data.assistant / total * 100) : 0}%)
-          </span>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <span className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: ROLE_COLORS.system }} />
-            System
-          </span>
-          <span className="font-mono font-medium">
-            {data.system.toLocaleString()} ({total > 0 ? Math.round(data.system / total * 100) : 0}%)
           </span>
         </div>
         <div className="flex items-center justify-between gap-4">
@@ -81,16 +91,20 @@ const CustomLegend = () => {
   return (
     <div className="flex flex-wrap items-center justify-center gap-4 text-sm py-2">
       <div className="flex items-center gap-2">
+        <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: ROLE_COLORS.system }} />
+        <span>System</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: ROLE_COLORS.systemReminder }} />
+        <span>System-Reminder</span>
+      </div>
+      <div className="flex items-center gap-2">
         <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: ROLE_COLORS.user }} />
         <span>User</span>
       </div>
       <div className="flex items-center gap-2">
         <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: ROLE_COLORS.assistant }} />
         <span>Assistant</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: ROLE_COLORS.system }} />
-        <span>System</span>
       </div>
       <div className="flex items-center gap-2">
         <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: ROLE_COLORS.tool }} />
@@ -150,6 +164,18 @@ export default function RoleTokenBarChart({ data }) {
             />
             <Tooltip content={<CustomTooltip />} />
             <Bar
+              dataKey="system"
+              stackId="tokens"
+              fill={ROLE_COLORS.system}
+              name="System"
+            />
+            <Bar
+              dataKey="systemReminder"
+              stackId="tokens"
+              fill={ROLE_COLORS.systemReminder}
+              name="System-Reminder"
+            />
+            <Bar
               dataKey="user"
               stackId="tokens"
               fill={ROLE_COLORS.user}
@@ -160,12 +186,6 @@ export default function RoleTokenBarChart({ data }) {
               stackId="tokens"
               fill={ROLE_COLORS.assistant}
               name="Assistant"
-            />
-            <Bar
-              dataKey="system"
-              stackId="tokens"
-              fill={ROLE_COLORS.system}
-              name="System"
             />
             <Bar
               dataKey="tool"

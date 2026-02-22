@@ -70,8 +70,26 @@ export function estimateTokensFromText(text) {
 /**
  * 从单条消息中估算 token 数量
  * 支持文本和 content block 格式
+ * 返回对象: { total, systemReminder, withoutSystemReminder }
  */
 export function estimateTokensFromMessage(message) {
+  if (!message) return { total: 0, systemReminder: 0, withoutSystemReminder: 0 };
+
+  const total = _estimateTokensFromMessageInternal(message);
+  const systemReminder = extractSystemReminderTokens(message);
+
+  return {
+    total,
+    systemReminder,
+    withoutSystemReminder: total - systemReminder,
+  };
+}
+
+/**
+ * 内部函数：从单条消息中估算 token 数量（不含细分）
+ * 支持文本和 content block 格式
+ */
+function _estimateTokensFromMessageInternal(message) {
   if (!message) return 0;
 
   // 处理 content block 格式
@@ -213,7 +231,7 @@ export function extractAccurateTokens(responseBody) {
 
 /**
  * 分析单条日志条目的 token 使用情况
- * 按角色分组：user, assistant, system, tool
+ * 按角色分组：user, assistant, system, tool, systemReminder
  */
 export function analyzeEntryTokens(entry) {
   const result = {
@@ -221,6 +239,7 @@ export function analyzeEntryTokens(entry) {
     user: 0,
     assistant: 0,
     system: 0,
+    systemReminder: 0,
     tool: 0,
     total: 0,
     timestamp: entry.timestamp || null,
@@ -246,13 +265,18 @@ export function analyzeEntryTokens(entry) {
   if (requestBody?.messages && Array.isArray(requestBody.messages)) {
     for (const message of requestBody.messages) {
       const role = normalizeRole(message.role, message.content);
-      const tokens = estimateTokensFromMessage(message);
 
       // system 已经在 extractSystemTokens 中处理过
       if (role === 'system') continue;
 
-      if (role === 'user' || role === 'assistant' || role === 'tool') {
-        result[role] += tokens;
+      // 获取 token 细分信息
+      const tokenInfo = estimateTokensFromMessage(message);
+
+      if (role === 'user') {
+        result.user += tokenInfo.withoutSystemReminder;
+        result.systemReminder += tokenInfo.systemReminder;
+      } else if (role === 'assistant' || role === 'tool') {
+        result[role] += tokenInfo.total;
       }
     }
   }
@@ -271,9 +295,9 @@ export function analyzeEntryTokens(entry) {
     }
   }
 
-  // 5. 如果没有准确数据，使用估算的总量
+  // 5. 更新总量计算
   if (!result.hasAccurateData) {
-    result.total = result.user + result.assistant + result.system + result.tool;
+    result.total = result.user + result.assistant + result.system + result.systemReminder + result.tool;
   }
 
   return result;
@@ -304,7 +328,7 @@ export function calculateSummaryStats(tokenData) {
       avgTokens: 0,
       maxTokens: 0,
       minTokens: 0,
-      byRole: { user: 0, assistant: 0, system: 0, tool: 0 },
+      byRole: { user: 0, assistant: 0, system: 0, systemReminder: 0, tool: 0 },
     };
   }
 
@@ -313,10 +337,11 @@ export function calculateSummaryStats(tokenData) {
       user: acc.user + item.user,
       assistant: acc.assistant + item.assistant,
       system: acc.system + item.system,
+      systemReminder: acc.systemReminder + item.systemReminder,
       tool: acc.tool + item.tool,
       total: acc.total + item.total,
     }),
-    { user: 0, assistant: 0, system: 0, tool: 0, total: 0 }
+    { user: 0, assistant: 0, system: 0, systemReminder: 0, tool: 0, total: 0 }
   );
 
   const totalTokens = totals.total;
@@ -333,6 +358,7 @@ export function calculateSummaryStats(tokenData) {
       user: totals.user,
       assistant: totals.assistant,
       system: totals.system,
+      systemReminder: totals.systemReminder,
       tool: totals.tool,
     },
   };
