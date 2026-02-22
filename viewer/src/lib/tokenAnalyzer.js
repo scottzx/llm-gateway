@@ -172,6 +172,18 @@ export function extractSystemTokens(requestBody) {
 }
 
 /**
+ * 从请求体中提取 tools 定义的字节数/token 数量
+ * Tools 定义包含工具名称、描述和参数 schema
+ */
+export function extractToolsReminderTokens(requestBody) {
+  if (!requestBody?.tools || !Array.isArray(requestBody.tools)) return 0;
+
+  // 将 tools 数组转换为 JSON 字符串进行估算
+  const toolsJson = JSON.stringify(requestBody.tools);
+  return estimateTokensFromText(toolsJson);
+}
+
+/**
  * 标准化角色名称
  * tool_use 和 tool_result 统一归为 tool
  */
@@ -241,6 +253,7 @@ export function analyzeEntryTokens(entry) {
     system: 0,
     systemReminder: 0,
     tool: 0,
+    toolsReminder: 0,
     total: 0,
     timestamp: entry.timestamp || null,
     hasAccurateData: false,
@@ -260,6 +273,9 @@ export function analyzeEntryTokens(entry) {
 
   // 2. 提取 system tokens
   result.system = extractSystemTokens(requestBody);
+
+  // 2.5. 提取 tools 定义 tokens
+  result.toolsReminder = extractToolsReminderTokens(requestBody);
 
   // 3. 分析 messages 数组中的 token 使用
   if (requestBody?.messages && Array.isArray(requestBody.messages)) {
@@ -297,7 +313,7 @@ export function analyzeEntryTokens(entry) {
 
   // 5. 更新总量计算
   if (!result.hasAccurateData) {
-    result.total = result.user + result.assistant + result.system + result.systemReminder + result.tool;
+    result.total = result.user + result.assistant + result.system + result.systemReminder + result.tool + result.toolsReminder;
   }
 
   return result;
@@ -328,7 +344,7 @@ export function calculateSummaryStats(tokenData) {
       avgTokens: 0,
       maxTokens: 0,
       minTokens: 0,
-      byRole: { user: 0, assistant: 0, system: 0, systemReminder: 0, tool: 0 },
+      byRole: { user: 0, assistant: 0, system: 0, systemReminder: 0, tool: 0, toolsReminder: 0 },
     };
   }
 
@@ -339,9 +355,10 @@ export function calculateSummaryStats(tokenData) {
       system: acc.system + item.system,
       systemReminder: acc.systemReminder + item.systemReminder,
       tool: acc.tool + item.tool,
+      toolsReminder: acc.toolsReminder + item.toolsReminder,
       total: acc.total + item.total,
     }),
-    { user: 0, assistant: 0, system: 0, systemReminder: 0, tool: 0, total: 0 }
+    { user: 0, assistant: 0, system: 0, systemReminder: 0, tool: 0, toolsReminder: 0, total: 0 }
   );
 
   const totalTokens = totals.total;
@@ -360,6 +377,7 @@ export function calculateSummaryStats(tokenData) {
       system: totals.system,
       systemReminder: totals.systemReminder,
       tool: totals.tool,
+      toolsReminder: totals.toolsReminder,
     },
   };
 }

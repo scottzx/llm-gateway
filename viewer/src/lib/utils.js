@@ -48,7 +48,11 @@ export function getRoleBadgeClass(role) {
     case 'assistant':
       return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
     case 'system':
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+      return 'bg-gray-300 text-gray-800 dark:bg-gray-600 dark:text-gray-200';
+    case 'systemReminder':
+      return 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+    case 'toolsReminder':
+      return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
     case 'tool_result':
     case 'tool_use':
       return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';

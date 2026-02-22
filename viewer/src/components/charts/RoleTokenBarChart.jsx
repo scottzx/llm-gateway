@@ -5,11 +5,12 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } fro
  * 与 MessageCard 的角色颜色保持一致
  */
 const ROLE_COLORS = {
-  user: '#3b82f6',    // 蓝色
-  assistant: '#10b981', // 绿色
-  system: '#6b7280',    // 灰色
-  systemReminder: '#f59e0b', // 黄色
-  tool: '#8b5cf6',      // 紫色
+  user: '#3b82f6',        // 蓝色
+  assistant: '#10b981',    // 绿色
+  system: '#374151',       // 深灰色
+  systemReminder: '#6b7280', // 灰色
+  toolsReminder: '#9ca3af',  // 浅灰色
+  tool: '#8b5cf6',         // 紫色
 };
 
 /**
@@ -46,6 +47,15 @@ const CustomTooltip = ({ active, payload }) => {
           </span>
           <span className="font-mono font-medium">
             {data.systemReminder.toLocaleString()} ({total > 0 ? Math.round(data.systemReminder / total * 100) : 0}%)
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: ROLE_COLORS.toolsReminder }} />
+            Tools-Reminder
+          </span>
+          <span className="font-mono font-medium">
+            {data.toolsReminder.toLocaleString()} ({total > 0 ? Math.round(data.toolsReminder / total * 100) : 0}%)
           </span>
         </div>
         <div className="flex items-center justify-between gap-4">
@@ -97,6 +107,10 @@ const CustomLegend = () => {
       <div className="flex items-center gap-2">
         <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: ROLE_COLORS.systemReminder }} />
         <span>System-Reminder</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: ROLE_COLORS.toolsReminder }} />
+        <span>Tools-Reminder</span>
       </div>
       <div className="flex items-center gap-2">
         <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: ROLE_COLORS.user }} />
@@ -174,6 +188,12 @@ export default function RoleTokenBarChart({ data }) {
               stackId="tokens"
               fill={ROLE_COLORS.systemReminder}
               name="System-Reminder"
+            />
+            <Bar
+              dataKey="toolsReminder"
+              stackId="tokens"
+              fill={ROLE_COLORS.toolsReminder}
+              name="Tools-Reminder"
             />
             <Bar
               dataKey="user"
