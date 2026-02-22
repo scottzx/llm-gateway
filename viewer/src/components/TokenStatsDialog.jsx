@@ -99,8 +99,8 @@ export default function TokenStatsDialog({ entries, open, onOpenChange }) {
                   {formatTokens(summary.byRole.system)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {summary.totalTokens > 0
-                    ? Math.round(summary.byRole.system / summary.totalTokens * 100)
+                  {summary.roleSum > 0
+                    ? Math.round(summary.byRole.system / summary.roleSum * 100)
                     : 0}%
                 </p>
               </div>
@@ -110,8 +110,8 @@ export default function TokenStatsDialog({ entries, open, onOpenChange }) {
                   {formatTokens(summary.byRole.systemReminder)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {summary.totalTokens > 0
-                    ? Math.round(summary.byRole.systemReminder / summary.totalTokens * 100)
+                  {summary.roleSum > 0
+                    ? Math.round(summary.byRole.systemReminder / summary.roleSum * 100)
                     : 0}%
                 </p>
               </div>
@@ -121,8 +121,8 @@ export default function TokenStatsDialog({ entries, open, onOpenChange }) {
                   {formatTokens(summary.byRole.toolsReminder)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {summary.totalTokens > 0
-                    ? Math.round(summary.byRole.toolsReminder / summary.totalTokens * 100)
+                  {summary.roleSum > 0
+                    ? Math.round(summary.byRole.toolsReminder / summary.roleSum * 100)
                     : 0}%
                 </p>
               </div>
@@ -132,8 +132,8 @@ export default function TokenStatsDialog({ entries, open, onOpenChange }) {
                   {formatTokens(summary.byRole.user)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {summary.totalTokens > 0
-                    ? Math.round(summary.byRole.user / summary.totalTokens * 100)
+                  {summary.roleSum > 0
+                    ? Math.round(summary.byRole.user / summary.roleSum * 100)
                     : 0}%
                 </p>
               </div>
@@ -143,8 +143,8 @@ export default function TokenStatsDialog({ entries, open, onOpenChange }) {
                   {formatTokens(summary.byRole.assistant)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {summary.totalTokens > 0
-                    ? Math.round(summary.byRole.assistant / summary.totalTokens * 100)
+                  {summary.roleSum > 0
+                    ? Math.round(summary.byRole.assistant / summary.roleSum * 100)
                     : 0}%
                 </p>
               </div>
@@ -154,8 +154,8 @@ export default function TokenStatsDialog({ entries, open, onOpenChange }) {
                   {formatTokens(summary.byRole.tool)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {summary.totalTokens > 0
-                    ? Math.round(summary.byRole.tool / summary.totalTokens * 100)
+                  {summary.roleSum > 0
+                    ? Math.round(summary.byRole.tool / summary.roleSum * 100)
                     : 0}%
                 </p>
               </div>

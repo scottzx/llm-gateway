@@ -255,6 +255,7 @@ export function analyzeEntryTokens(entry) {
     tool: 0,
     toolsReminder: 0,
     total: 0,
+    roleSum: 0,
     timestamp: entry.timestamp || null,
     hasAccurateData: false,
   };
@@ -312,8 +313,9 @@ export function analyzeEntryTokens(entry) {
   }
 
   // 5. 更新总量计算
+  result.roleSum = result.user + result.assistant + result.system + result.systemReminder + result.tool + result.toolsReminder;
   if (!result.hasAccurateData) {
-    result.total = result.user + result.assistant + result.system + result.systemReminder + result.tool + result.toolsReminder;
+    result.total = result.roleSum;
   }
 
   return result;
@@ -341,6 +343,7 @@ export function calculateSummaryStats(tokenData) {
   if (!tokenData || tokenData.length === 0) {
     return {
       totalTokens: 0,
+      roleSum: 0,
       avgTokens: 0,
       maxTokens: 0,
       minTokens: 0,
@@ -362,12 +365,15 @@ export function calculateSummaryStats(tokenData) {
   );
 
   const totalTokens = totals.total;
+  const roleSum = totals.user + totals.assistant + totals.system +
+                 totals.systemReminder + totals.tool + totals.toolsReminder;
   const avgTokens = Math.round(totalTokens / tokenData.length);
   const maxTokens = Math.max(...tokenData.map(item => item.total));
   const minTokens = Math.min(...tokenData.map(item => item.total));
 
   return {
     totalTokens,
+    roleSum,
     avgTokens,
     maxTokens,
     minTokens,

@@ -23,7 +23,7 @@ const CustomTooltip = ({ active, payload }) => {
   }
 
   const data = payload[0].payload;
-  const total = data.total;
+  const total = data.roleSum;
 
   return (
     <div className="bg-background border border-border rounded-lg shadow-lg p-3 min-w-[200px]">
