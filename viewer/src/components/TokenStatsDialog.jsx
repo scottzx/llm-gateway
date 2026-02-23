@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,8 @@ import {
 } from './ui/dialog';
 import { formatTokens } from '../lib/utils';
 import RoleTokenBarChart from './charts/RoleTokenBarChart';
-import { BarChart3, Database, TrendingUp, Activity, Info, Zap } from 'lucide-react';
+import TokenUsageGuide from './TokenUsageGuide';
+import { BarChart3, Database, TrendingUp, Activity, Info, Zap, HelpCircle } from 'lucide-react';
 
 /**
  * 统计卡片组件
@@ -48,19 +49,52 @@ export default function TokenStatsDialog({ totalStats, open, onOpenChange }) {
     totalOutputTokens,
   } = totalStats;
 
+  // 标签页状态
+  const [activeTab, setActiveTab] = useState('stats');
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <BarChart3 className="w-5 h-5" />
-            Token 使用统计
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Token 使用统计
+            </DialogTitle>
+            {/* 标签页切换 */}
+            <div className="flex gap-1 mr-8">
+              <button
+                onClick={() => setActiveTab('stats')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'stats'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4" />
+                统计图表
+              </button>
+              <button
+                onClick={() => setActiveTab('guide')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'guide'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                }`}
+              >
+                <HelpCircle className="w-4 h-4" />
+                使用指南
+              </button>
+            </div>
+          </div>
           <DialogClose />
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* 统计摘要 */}
+        {/* 标签页内容 */}
+        <div className="flex-1 overflow-y-auto">
+          {activeTab === 'stats' ? (
+            <div className="space-y-6">
+              {/* 统计摘要 */}
           <div className="grid grid-cols-4 gap-4">
             <StatCard
               icon={<Database className="w-4 h-4" />}
@@ -211,6 +245,10 @@ export default function TokenStatsDialog({ totalStats, open, onOpenChange }) {
               </p>
             </div>
           </div>
+            </div>
+          ) : (
+            <TokenUsageGuide />
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -30,7 +30,7 @@ const CustomTooltip = ({ active, payload }) => {
   return (
     <div className="bg-background border border-border rounded-lg shadow-lg p-3 min-w-[250px]">
       <div className="text-sm font-semibold mb-2 pb-2 border-b">
-        对话轮次 #{data.messageIndex + 1}
+        对话轮次 #{data.index + 1}
       </div>
 
       {/* Input/Output Summary */}

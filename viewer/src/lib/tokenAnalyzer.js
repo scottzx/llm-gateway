@@ -247,7 +247,7 @@ export function extractAccurateTokens(responseBody) {
  */
 export function analyzeEntryTokens(entry) {
   const result = {
-    messageIndex: entry.messageIndex || 0,
+    index: entry.index || 0,
     user: 0,
     assistant: 0,
     system: 0,
