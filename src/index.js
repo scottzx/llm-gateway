@@ -1,9 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
-const ChatLogger = require('./logger');
 const DatabaseLogger = require('./db-logger');
-const { registerRoutes } = require('./api');
 const { registerDBRoutes } = require('./api-db');
 
 const app = express();
@@ -12,29 +10,24 @@ const TARGET_URL = process.env.TARGET_URL;
 const TIMEOUT = parseInt(process.env.TIMEOUT) || 60000;
 const LOG_ENABLED = process.env.LOG_ENABLED === 'true';
 const API_TOKEN = process.env.API_TOKEN;
-const CHAT_LOG_ENABLED = process.env.CHAT_LOG_ENABLED === 'true';
-const CHAT_LOG_DIR = process.env.CHAT_LOG_DIR || 'logs';
 
-// 日志系统配置
+// 日志系统配置 - SQLite 数据库
 const DB_LOG_ENABLED = process.env.DB_LOG_ENABLED === 'true';
 const DB_LOG_PATH = process.env.DB_LOG_PATH || './data/chat-logs.db';
 const LOG_RETENTION_DAYS = parseInt(process.env.LOG_RETENTION_DAYS) || 7;
 
-// 初始化日志记录器（优先使用数据库）
-let chatLogger = null;
+// 初始化数据库日志记录器
 let dbLogger = null;
 
-if (CHAT_LOG_ENABLED) {
-  if (DB_LOG_ENABLED) {
-    try {
-      dbLogger = new DatabaseLogger(DB_LOG_PATH, LOG_RETENTION_DAYS);
-      console.log('[System] Using SQLite database logger');
-    } catch (error) {
-      console.error('[System] Failed to initialize database logger, falling back to file logger:', error.message);
-      chatLogger = new ChatLogger(CHAT_LOG_DIR);
-    }
-  } else {
-    chatLogger = new ChatLogger(CHAT_LOG_DIR);
+if (DB_LOG_ENABLED) {
+  try {
+    dbLogger = new DatabaseLogger(DB_LOG_PATH, LOG_RETENTION_DAYS);
+    console.log('[Server] Log system: SQLite database');
+    console.log('[Server] Database path:', DB_LOG_PATH);
+  } catch (error) {
+    console.error('[Server] Failed to initialize database logger. Exiting.');
+    console.error('[Server] Error:', error.message);
+    process.exit(1);
   }
 }
 
@@ -53,13 +46,10 @@ if (LOG_ENABLED) {
 // 注册 API 路由（不需要认证）
 const path = require('path');
 
-// 注册数据库 API 路由（优先注册，避免路由冲突）
+// 注册数据库 API 路由
 if (dbLogger) {
   registerDBRoutes(app, dbLogger);
 }
-
-// 注册文件日志 API 路由
-registerRoutes(app);
 
 // 注册翻译 API 路由
 const { registerTranslationRoutes } = require('./translation-api');
@@ -128,8 +118,8 @@ const proxyMiddleware = async (req, res) => {
     // 计算请求耗时
     const duration = Date.now() - startTime;
 
-    // 记录聊天日志
-    if (CHAT_LOG_ENABLED) {
+    // 记录聊天日志到 SQLite 数据库
+    if (dbLogger) {
       const logEntry = {
         timestamp: new Date().toISOString(),
         path: req.path,
@@ -150,12 +140,7 @@ const proxyMiddleware = async (req, res) => {
         duration: duration
       };
 
-      // 使用数据库日志或文件日志
-      if (dbLogger) {
-        dbLogger.log(logEntry);
-      } else if (chatLogger) {
-        await chatLogger.log(logEntry);
-      }
+      dbLogger.log(logEntry);
     }
 
     // 转发响应头
@@ -176,8 +161,8 @@ const proxyMiddleware = async (req, res) => {
       console.error('[Proxy] 错误:', error.message);
     }
 
-    // 记录错误日志
-    if (CHAT_LOG_ENABLED) {
+    // 记录错误日志到 SQLite 数据库
+    if (dbLogger) {
       const logEntry = {
         timestamp: new Date().toISOString(),
         path: req.path,
@@ -195,12 +180,7 @@ const proxyMiddleware = async (req, res) => {
         duration: duration
       };
 
-      // 使用数据库日志或文件日志
-      if (dbLogger) {
-        dbLogger.log(logEntry);
-      } else if (chatLogger) {
-        await chatLogger.log(logEntry);
-      }
+      dbLogger.log(logEntry);
     }
 
     // 处理超时错误
@@ -240,7 +220,6 @@ app.all('/*', proxyMiddleware);
 
 // 启动服务器
 const server = app.listen(PORT, () => {
-  const logType = dbLogger ? `数据库 (${DB_LOG_PATH})` : (chatLogger ? `文件 (${CHAT_LOG_DIR})` : '关闭');
   console.log(`
 ╔══════════════════════════════════════════════════════════╗
 ║              LLM Gateway 服务已启动                      ║
@@ -249,7 +228,8 @@ const server = app.listen(PORT, () => {
 ║  目标URL:   ${TARGET_URL}                     ║
 ║  超时时间:  ${TIMEOUT}ms                                   ║
 ║  日志:      ${LOG_ENABLED ? '开启' : '关闭'}                         ║
-║  聊天日志:  ${CHAT_LOG_ENABLED ? logType : '关闭'}                    ║
+║  聊天日志:  ${dbLogger ? 'SQLite 数据库' : '关闭'}                    ║
+║  数据库:    ${dbLogger ? DB_LOG_PATH : 'N/A'}                      ║
 ║  保留天数:  ${dbLogger ? LOG_RETENTION_DAYS + ' 天' : 'N/A'}                      ║
 ╚══════════════════════════════════════════════════════════╝
 
