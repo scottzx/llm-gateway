@@ -28,5 +28,7 @@ dist
 .data
 .playwright-mcp
 
-data/chat-logs.db-shm
-data/chat-logs.db-wal
+# 数据库文件（运行时生成）
+# data/*.db
+data/*.db-shm
+data/*.db-wal
