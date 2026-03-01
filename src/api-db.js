@@ -165,11 +165,26 @@ function registerDBRoutes(app, dbLogger) {
   app.get('/api/logs/db/sessions/:sessionId/logs', (req, res) => {
     try {
       const { sessionId } = req.params;
-      const { limit = 100, offset = 0 } = req.query;
+      const {
+        limit = 100,
+        offset = 0,
+        startDate,
+        endDate,
+        model,
+        status,
+        minDuration,
+        maxDuration
+      } = req.query;
 
       const result = dbLogger.getSessionLogs(sessionId, {
         limit: parseInt(limit) || 100,
-        offset: parseInt(offset) || 0
+        offset: parseInt(offset) || 0,
+        startDate,
+        endDate,
+        model,
+        status: status ? parseInt(status) : undefined,
+        minDuration: minDuration ? parseInt(minDuration) : undefined,
+        maxDuration: maxDuration ? parseInt(maxDuration) : undefined
       });
 
       res.json(result);

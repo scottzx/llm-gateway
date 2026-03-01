@@ -13,8 +13,9 @@ import { Filter, X, Calendar, Cpu, AlertCircle } from 'lucide-react';
  * @param {Function} props.onFilterChange - 过滤器变化回调
  * @param {Array<string>} props.models - 可用的模型列表
  * @param {number} props.totalRecords - 总记录数（用于显示）
+ * @param {string} props.viewMode - 视图模式 ('all' | 'session' | 'sessions')
  */
-export default function LogFilters({ filters, onFilterChange, models = [], totalRecords = 0 }) {
+export default function LogFilters({ filters, onFilterChange, models = [], totalRecords = 0, viewMode = 'all' }) {
   const updateFilter = (key, value) => {
     onFilterChange({
       ...filters,
@@ -65,13 +66,20 @@ export default function LogFilters({ filters, onFilterChange, models = [], total
     });
   };
 
+  const isSessionView = viewMode === 'session';
+
   return (
     <div className="border-b bg-muted/30 p-3">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-muted-foreground" />
           <span className="text-sm font-medium">筛选条件</span>
-          {hasActiveFilters && (
+          {isSessionView && (
+            <span className="text-xs text-muted-foreground">
+              (应用于当前会话)
+            </span>
+          )}
+          {hasActiveFilters && !isSessionView && (
             <span className="text-xs text-muted-foreground">
               ({totalRecords.toLocaleString()} 条记录)
             </span>

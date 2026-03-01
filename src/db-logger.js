@@ -601,25 +601,91 @@ class DatabaseLogger {
     try {
       const {
         limit = 100,
-        offset = 0
+        offset = 0,
+        startDate,
+        endDate,
+        model,
+        status,
+        minDuration,
+        maxDuration
       } = options;
 
-      const baseFilters = {
-        limit,
-        offset
-      };
+      // Build query with filters
+      let query = 'SELECT * FROM chat_logs WHERE session_id = ?';
+      const params = [sessionId];
 
-      // Add session filter to WHERE clause
-      const entries = this.db.prepare(`
-        SELECT * FROM chat_logs
-        WHERE session_id = ?
-        ORDER BY timestamp ASC
-        LIMIT ? OFFSET ?
-      `).all(sessionId, limit, offset);
+      // Date range filter
+      if (startDate) {
+        query += ' AND timestamp >= ?';
+        params.push(startDate);
+      }
+      if (endDate) {
+        query += ' AND timestamp <= ?';
+        params.push(endDate);
+      }
 
-      // Get total count for this session
-      const countStmt = this.db.prepare('SELECT COUNT(*) as count FROM chat_logs WHERE session_id = ?');
-      const { count: total } = countStmt.get(sessionId);
+      // Model filter
+      if (model) {
+        query += ' AND model = ?';
+        params.push(model);
+      }
+
+      // Status filter
+      if (status) {
+        query += ' AND response_status = ?';
+        params.push(status);
+      }
+
+      // Duration filters
+      if (minDuration) {
+        query += ' AND duration >= ?';
+        params.push(minDuration);
+      }
+      if (maxDuration) {
+        query += ' AND duration <= ?';
+        params.push(maxDuration);
+      }
+
+      // Order by timestamp asc (oldest first for session view)
+      query += ' ORDER BY timestamp ASC';
+
+      // Pagination
+      query += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+
+      const entries = this.db.prepare(query).all(...params);
+
+      // Get total count for this session with filters
+      let countQuery = 'SELECT COUNT(*) as count FROM chat_logs WHERE session_id = ?';
+      const countParams = [sessionId];
+
+      if (startDate) {
+        countQuery += ' AND timestamp >= ?';
+        countParams.push(startDate);
+      }
+      if (endDate) {
+        countQuery += ' AND timestamp <= ?';
+        countParams.push(endDate);
+      }
+      if (model) {
+        countQuery += ' AND model = ?';
+        countParams.push(model);
+      }
+      if (status) {
+        countQuery += ' AND response_status = ?';
+        countParams.push(status);
+      }
+      if (minDuration) {
+        countQuery += ' AND duration >= ?';
+        countParams.push(minDuration);
+      }
+      if (maxDuration) {
+        countQuery += ' AND duration <= ?';
+        countParams.push(maxDuration);
+      }
+
+      const countStmt = this.db.prepare(countQuery);
+      const { count: total } = countStmt.get(...countParams);
 
       return {
         entries: entries.map(row => this.parseRow(row)),
@@ -654,8 +720,8 @@ class DatabaseLogger {
       duration: row.duration,
       error: row.error_message,
       model: row.model,
-      promptTokens: row.prompt_tokens,
-      completionTokens: row.completion_tokens,
+      inputTokens: row.prompt_tokens,
+      outputTokens: row.completion_tokens,
       totalTokens: row.total_tokens,
       messageId: row.message_id,
       userId: row.user_id,

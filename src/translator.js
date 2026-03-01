@@ -16,7 +16,7 @@ class TranslationService {
     this.timeout = parseInt(process.env.TRANSLATION_TIMEOUT) || 30000; // 30秒超时
     this.apiEndpoint = process.env.MODELSCOPE_API_ENDPOINT || 'https://api-inference.modelscope.cn/v1/chat/completions';
     this.model = process.env.TRANSLATION_MODEL || 'Qwen/Qwen2.5-72B-Instruct';
-    this.apiToken = process.env.API_TOKEN;
+    this.apiToken = process.env.TRANSLATION_API_TOKEN;
   }
 
   /**

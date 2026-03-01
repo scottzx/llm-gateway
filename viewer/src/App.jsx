@@ -135,6 +135,14 @@ function App() {
     }
   }, [pagination.offset]);
 
+  // 当在会话视图中且过滤器变化时，重载会话日志
+  useEffect(() => {
+    if (viewMode === 'session' && selectedSessionId) {
+      setPagination((prev) => ({ ...prev, offset: 0 }));
+      loadSessionLogs(selectedSessionId);
+    }
+  }, [filters.model, filters.status, filters.startDate, filters.endDate]);
+
   // 处理过滤器变化
   const handleFilterChange = useCallback((newFilters) => {
     setFilters(newFilters);
@@ -168,12 +176,20 @@ function App() {
       setError(null);
 
       const result = await fetchDBSessionLogs(sessionId, {
-        limit: 100,
-        offset: 0,
+        limit: pagination.limit,
+        offset: pagination.offset,
+        ...filters,  // 传递筛选条件
       });
 
       setEntries(result.entries);
       setSelectedSessionId(sessionId);
+
+      // 更新分页信息
+      setPagination((prev) => ({
+        ...prev,
+        total: result.pagination?.total || result.entries.length,
+        hasMore: result.pagination?.hasMore || false,
+      }));
 
       // 选择第一条记录
       if (result.entries.length > 0) {
@@ -186,16 +202,30 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pagination.limit, pagination.offset, filters]);
 
   // 处理会话选择
   const handleSessionSelect = useCallback((sessionId) => {
+    // 重置筛选条件
+    setFilters({
+      model: null,
+      status: null,
+      startDate: null,
+      endDate: null,
+    });
     setViewMode('session');
     loadSessionLogs(sessionId);
   }, [loadSessionLogs]);
 
   // 返回全部日志视图
   const handleBackToAll = useCallback(() => {
+    // 重置筛选条件
+    setFilters({
+      model: null,
+      status: null,
+      startDate: null,
+      endDate: null,
+    });
     setViewMode('all');
     setSelectedSessionId(null);
     loadEntries();
@@ -268,32 +298,44 @@ function App() {
       {/* Filter & Timeline View */}
       {viewMode !== 'sessions' && (
         <>
-          {/* 过滤器 */}
-          {viewMode === 'all' && (
+          {/* 过滤器 - 在全部日志和会话视图都显示 */}
+          {(viewMode === 'all' || viewMode === 'session') && (
             <LogFilters
               filters={filters}
               onFilterChange={handleFilterChange}
               models={models}
               totalRecords={pagination.total}
+              viewMode={viewMode}
             />
           )}
 
           {/* 会话信息提示 */}
           {viewMode === 'session' && selectedSessionId && (
-            <div className="border-b bg-primary/10 px-4 py-2 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm">
-                <Users className="w-4 h-4 text-primary" />
-                <span className="font-medium">会话视图</span>
-                <span className="text-muted-foreground font-mono text-xs">
-                  {selectedSessionId.slice(0, 8)}...
-                </span>
+            <div className="border-b bg-primary/10 px-4 py-2">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Users className="w-4 h-4 text-primary" />
+                  <span className="font-medium">会话视图</span>
+                  <span className="text-muted-foreground font-mono text-xs">
+                    {selectedSessionId.slice(0, 8)}...
+                  </span>
+                </div>
+                <button
+                  onClick={handleBackToAll}
+                  className="text-xs text-primary hover:underline"
+                >
+                  返回全部日志
+                </button>
               </div>
-              <button
-                onClick={handleBackToAll}
-                className="text-xs text-primary hover:underline"
-              >
-                返回全部日志
-              </button>
+              {/* 显示当前筛选状态 */}
+              {Object.values(filters).some((v) => v !== null) && (
+                <div className="text-xs text-muted-foreground">
+                  已应用筛选条件，显示该会话中符合条件的结果
+                  {pagination.total > 0 && (
+                    <span className="ml-1">（共 {pagination.total.toLocaleString()} 条）</span>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
