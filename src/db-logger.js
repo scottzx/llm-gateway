@@ -502,6 +502,24 @@ class DatabaseLogger {
   }
 
   /**
+   * Get unique models for a specific session
+   * @param {string} sessionId - Session ID
+   * @returns {Array<string>} List of model names
+   */
+  getSessionModels(sessionId) {
+    try {
+      const stmt = this.db.prepare(
+        'SELECT DISTINCT model FROM chat_logs WHERE session_id = ? AND model IS NOT NULL ORDER BY model'
+      );
+      const rows = stmt.all(sessionId);
+      return rows.map(r => r.model);
+    } catch (error) {
+      console.error('[DatabaseLogger] Get session models failed:', error.message);
+      return [];
+    }
+  }
+
+  /**
    * Get list of sessions with summary information
    * @param {Object} options - Query options
    * @param {number} options.limit - Maximum number of sessions to return

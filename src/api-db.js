@@ -194,6 +194,20 @@ function registerDBRoutes(app, dbLogger) {
   });
 
   /**
+   * GET /api/logs/db/sessions/:sessionId/models
+   * Get models used in a specific session
+   */
+  app.get('/api/logs/db/sessions/:sessionId/models', (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const models = dbLogger.getSessionModels(sessionId);
+      res.json({ models });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
    * GET /api/logs/db/:id
    * Get a single log entry by ID
    */

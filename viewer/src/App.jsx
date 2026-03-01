@@ -5,6 +5,7 @@ import {
   fetchDBModels,
   fetchDBHealth,
   fetchDBSessionLogs,
+  fetchSessionModels,
 } from './lib/api';
 import { calculateTotalStats } from './lib/tokenAnalyzer';
 import ConversationTimeline from './components/ConversationTimeline';
@@ -48,6 +49,9 @@ function App() {
 
   // 可用模型列表
   const [models, setModels] = useState([]);
+
+  // 当前会话的模型列表
+  const [sessionModels, setSessionModels] = useState(null);
 
   // 数据库健康状态
   const [dbHealth, setDbHealth] = useState(null);
@@ -110,6 +114,26 @@ function App() {
       console.error('Failed to load models:', err);
     }
   }, []);
+
+  // 加载会话特定的模型列表
+  const loadSessionModels = useCallback(async (sessionId) => {
+    try {
+      const models = await fetchSessionModels(sessionId);
+      setSessionModels(models);
+    } catch (err) {
+      console.error('Failed to load session models:', err);
+      setSessionModels([]);
+    }
+  }, []);
+
+  // 当切换到会话视图或会话 ID 变化时，获取该会话的模型
+  useEffect(() => {
+    if (selectedSessionId) {
+      loadSessionModels(selectedSessionId);
+    } else {
+      setSessionModels(null);
+    }
+  }, [selectedSessionId, loadSessionModels]);
 
   // 初始加载
   useEffect(() => {
@@ -303,7 +327,7 @@ function App() {
             <LogFilters
               filters={filters}
               onFilterChange={handleFilterChange}
-              models={models}
+              models={viewMode === 'session' ? (sessionModels || []) : models}
               totalRecords={pagination.total}
               viewMode={viewMode}
             />

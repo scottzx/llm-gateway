@@ -143,6 +143,20 @@ export async function fetchDBModels() {
 }
 
 /**
+ * 获取特定会话的模型列表
+ * @param {string} sessionId - 会话 ID
+ * @returns {Promise<Array<string>>} 模型名称数组
+ */
+export async function fetchSessionModels(sessionId) {
+  const response = await fetch(`${DB_API_BASE}/sessions/${encodeURIComponent(sessionId)}/models`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch session models: ${response.statusText}`);
+  }
+  const data = await response.json();
+  return data.models;
+}
+
+/**
  * 获取数据库健康状态
  * @returns {Promise<Object>} 数据库健康信息
  */
@@ -186,12 +200,20 @@ export async function fetchDBSessions(options = {}) {
  * @param {Object} options - 查询选项
  * @param {number} options.limit - 返回记录数限制
  * @param {number} options.offset - 偏移量（用于分页）
+ * @param {string} options.startDate - 开始日期 (ISO 8601)
+ * @param {string} options.endDate - 结束日期 (ISO 8601)
+ * @param {string} options.model - 模型名称筛选
+ * @param {string} options.status - 状态筛选 (e.g., "200", "500")
  * @returns {Promise<Object>} { entries, pagination }
  */
 export async function fetchDBSessionLogs(sessionId, options = {}) {
   const params = new URLSearchParams();
   if (options.limit) params.append('limit', options.limit);
   if (options.offset) params.append('offset', options.offset);
+  if (options.startDate) params.append('startDate', options.startDate);
+  if (options.endDate) params.append('endDate', options.endDate);
+  if (options.model) params.append('model', options.model);
+  if (options.status) params.append('status', options.status);
 
   const response = await fetch(`${DB_API_BASE}/sessions/${encodeURIComponent(sessionId)}/logs?${params}`);
   if (!response.ok) {
