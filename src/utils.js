@@ -165,8 +165,97 @@ function extractUsageFromResponse(responseBody) {
   return null;
 }
 
+/**
+ * 替换旧的系统提示词文本
+ * @param {object} requestBody - 请求体对象
+ * @returns {object} 修改后的请求体
+ */
+function replaceOldSystemPrompt(requestBody) {
+  const OLD_TEXTS = [
+    "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+    "You are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.",
+    "You are Claude Code, Anthropic's official CLI for Claude."
+  ];
+  const NEW_TEXT = "You are Claude Code, Anthropic's official CLI for Claude.";
+
+  if (!requestBody) {
+    return requestBody;
+  }
+
+  let modified = false;
+  const result = { ...requestBody };
+
+  // 1. Handle 'system' array (Anthropic Messages API)
+  if (result.system && Array.isArray(result.system)) {
+    const modifiedSystem = result.system.map(block => {
+      if (block.type === 'text' && block.text) {
+        let newText = block.text;
+        for (const oldText of OLD_TEXTS) {
+          if (newText.includes(oldText)) {
+            modified = true;
+            newText = newText.replace(oldText, NEW_TEXT);
+          }
+        }
+        if (newText !== block.text) {
+          return { ...block, text: newText };
+        }
+      }
+      return block;
+    });
+    if (modified) {
+      result.system = modifiedSystem;
+    }
+  }
+
+  // 2. Handle 'messages' array
+  if (result.messages && Array.isArray(result.messages)) {
+    const modifiedMessages = result.messages.map(msg => {
+      if (msg.content && typeof msg.content === 'string') {
+        let newContent = msg.content;
+        for (const oldText of OLD_TEXTS) {
+          if (newContent.includes(oldText)) {
+            modified = true;
+            newContent = newContent.replace(oldText, NEW_TEXT);
+          }
+        }
+        if (newContent !== msg.content) {
+          return { ...msg, content: newContent };
+        }
+      }
+      // 处理 content 是数组的情况（如包含 text 类型的 content blocks）
+      if (msg.content && Array.isArray(msg.content)) {
+        const modifiedContent = msg.content.map(block => {
+          if (block.type === 'text' && block.text) {
+            let newText = block.text;
+            for (const oldText of OLD_TEXTS) {
+              if (newText.includes(oldText)) {
+                modified = true;
+                newText = newText.replace(oldText, NEW_TEXT);
+              }
+            }
+            if (newText !== block.text) {
+              return { ...block, text: newText };
+            }
+          }
+          return block;
+        });
+        if (modified) {
+          return { ...msg, content: modifiedContent };
+        }
+      }
+      return msg;
+    });
+    if (modified) {
+      result.messages = modifiedMessages;
+    }
+  }
+
+  return modified ? result : requestBody;
+}
+
 module.exports = {
   parseUserId,
   extractMessageIdFromSSE,
-  extractUsageFromResponse
+  extractUsageFromResponse,
+  replaceOldSystemPrompt
 };

@@ -3,6 +3,7 @@ const express = require('express');
 const axios = require('axios');
 const DatabaseLogger = require('./db-logger');
 const { registerDBRoutes } = require('./api-db');
+const { replaceOldSystemPrompt } = require('./utils');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -61,6 +62,9 @@ app.use('/viewer', express.static(path.join(__dirname, '../viewer/dist')));
 const proxyMiddleware = async (req, res) => {
   const startTime = Date.now();
 
+  // 替换旧的系统提示词
+  const modifiedBody = replaceOldSystemPrompt(req.body);
+
   try {
     // 构建目标 URL
     const targetUrl = `${TARGET_URL}${req.path}`;
@@ -82,7 +86,7 @@ const proxyMiddleware = async (req, res) => {
       method: req.method,
       url: targetUrl,
       headers: headers,
-      data: req.body,
+      data: modifiedBody,
       params: req.query,
       timeout: TIMEOUT,
       validateStatus: () => true,
@@ -107,7 +111,7 @@ const proxyMiddleware = async (req, res) => {
         timestamp: new Date().toISOString(),
         path: req.path,
         method: req.method,
-        requestBody: req.body,
+        requestBody: modifiedBody,
         requestQuery: req.query,
         requestHeaders: {
           authorization: req.headers.authorization,
@@ -150,7 +154,7 @@ const proxyMiddleware = async (req, res) => {
         timestamp: new Date().toISOString(),
         path: req.path,
         method: req.method,
-        requestBody: req.body,
+        requestBody: modifiedBody,
         requestQuery: req.query,
         requestHeaders: {
           authorization: req.headers.authorization,
