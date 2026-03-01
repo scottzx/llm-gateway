@@ -1,17 +1,33 @@
 # LLM Gateway
 
-A local gateway service for forwarding HTTP requests to target LLM APIs (OpenAI, Claude, etc.).
+本地网关服务，用于转发 HTTP 请求到目标 LLM API（OpenAI、Claude 等）。内置 SQLite 数据库日志存储、翻译服务和日志查看器。
 
-本地网关服务，用于转发 HTTP 请求到目标 LLM API。
+A local gateway service for forwarding HTTP requests to target LLM APIs (OpenAI, Claude, etc.) with built-in SQLite database logging, translation service, and log viewer.
+
+## 目录
+
+- [功能特性](#功能特性)
+- [快速开始](#快速开始)
+- [环境变量配置](#环境变量配置)
+- [API 文档](#api-文档)
+  - [代理端点](#代理端点)
+  - [日志查询 API](#日志查询-api)
+  - [翻译服务 API](#翻译服务-api)
+- [日志查看器](#日志查看器)
+- [项目结构](#项目结构)
+- [技术栈](#技术栈)
+- [License](#license)
 
 ## 功能特性
 
-- **请求转发**：将所有请求转发到配置的目标 URL
-- **Bearer Token 认证**：支持 API Token 验证
-- **请求日志**：可配置的请求日志记录
-- **聊天日志**：SQLite 数据库存储所有对话记录
-- **健康检查**：提供 `/health` 端点用于服务监控
-- **Viewer 应用**：内置静态文件服务用于日志查看
+- **HTTP 请求转发代理** - 将所有请求转发到配置的目标 URL
+- **Bearer Token 认证** - 支持 API Token 验证
+- **SQLite 数据库日志存储** - 持久化存储所有 LLM 对话记录
+- **自动日志清理** - 可配置的日志保留策略
+- **翻译服务** - 基于 ModelScope API 的文本翻译功能
+- **翻译缓存机制** - 智能缓存已翻译内容，减少 API 调用
+- **内置日志查看器** - 可视化查看和管理日志
+- **健康检查端点** - 服务监控和健康状态查询
 
 ## 快速开始
 
@@ -27,24 +43,13 @@ npm install
 
 ```env
 # 服务端口
-PORT=3000
+PORT=3012
 
-# 目标 URL (必填)
+# 目标转发 URL（必填）
 TARGET_URL=https://api.openai.com
 
-# API Token (必填，用于认证)
-API_TOKEN=your_api_token_here
-
-# 请求超时时间 (毫秒)
-TIMEOUT=60000
-
-# 请求日志 (true/false)
-LOG_ENABLED=true
-
-# 数据库日志配置
-DB_LOG_ENABLED=true
-DB_LOG_PATH=./data/chat-logs.db
-LOG_RETENTION_DAYS=7
+# API 认证 Token（必填）
+API_TOKEN=your-api-token-here
 ```
 
 ### 启动服务
@@ -53,45 +58,45 @@ LOG_RETENTION_DAYS=7
 # 生产模式
 npm start
 
-# 开发模式 (热重载)
+# 开发模式（热重载）
 npm run dev
 ```
 
-## 日志系统
+## 环境变量配置
 
-本应用使用 SQLite 数据库存储所有 LLM 对话日志。
+### 基础配置
 
-### 环境变量
+| 变量 | 必填 | 默认值 | 说明 |
+|------|:----:|--------|------|
+| `PORT` | 否 | `3000` | Gateway 服务端口 |
+| `TARGET_URL` | 是 | - | 目标转发 URL |
+| `API_TOKEN` | 是 | - | API 认证 Token |
+| `TIMEOUT` | 否 | `60000` | 请求超时时间（毫秒） |
+| `LOG_ENABLED` | 否 | `false` | 是否开启请求日志 |
 
-- `DB_LOG_ENABLED`: 启用数据库日志（默认: true）
-- `DB_LOG_PATH`: 数据库文件路径（默认: ./data/chat-logs.db）
-- `LOG_RETENTION_DAYS`: 日志保留天数（默认: 7 天）
+### 数据库日志配置
 
-### API 端点
+| 变量 | 必填 | 默认值 | 说明 |
+|------|:----:|--------|------|
+| `DB_LOG_ENABLED` | 否 | `true` | 是否启用数据库日志 |
+| `DB_LOG_PATH` | 否 | `./data/chat-logs.db` | 数据库文件路径 |
+| `LOG_RETENTION_DAYS` | 否 | `7` | 日志保留天数 |
+| `CLEANUP_INTERVAL_HOURS` | 否 | `1` | 清理任务间隔（小时） |
 
-所有日志查询通过 `/api/logs/db/*` 端点：
+### 翻译服务配置
 
-- `GET /api/logs/db/query` - 查询日志（支持筛选、分页）
-- `GET /api/logs/db/sessions` - 获取会话列表
-- `GET /api/logs/db/sessions/:sessionId/logs` - 获取会话日志
-- `GET /api/logs/db/models` - 获取模型列表
-- `GET /api/logs/db/stats/tokens` - 获取 Token 统计
-- `GET /api/logs/db/stats/hourly` - 获取每小时统计
-- `GET /api/logs/db/health` - 数据库健康检查
+| 变量 | 必填 | 默认值 | 说明 |
+|------|:----:|--------|------|
+| `MODELSCOPE_API_ENDPOINT` | 否 | `https://api-inference.modelscope.cn/v1/chat/completions` | ModelScope API 端点 |
+| `TRANSLATION_API_TOKEN` | 是 | - | ModelScope API Token |
+| `TRANSLATION_MODEL` | 否 | `Qwen/Qwen2.5-72B-Instruct` | 翻译使用的模型 |
+| `TRANSLATION_TIMEOUT` | 否 | `30000` | 翻译请求超时（毫秒） |
 
-### 历史数据迁移
-
-如果有旧的文件日志（JSONL 格式），使用迁移脚本：
-
-```bash
-node scripts/migrate-logs.js
-```
-
-## API 使用
+## API 文档
 
 ### 认证
 
-除以下端点外，所有请求都需要携带 Bearer Token：
+除公开端点外，所有请求都需要携带 Bearer Token：
 
 ```http
 Authorization: Bearer your_api_token_here
@@ -99,45 +104,292 @@ Authorization: Bearer your_api_token_here
 
 ### 公开端点
 
+以下端点无需认证：
+
 - `GET /health` - 健康检查
 - `GET /viewer/*` - 日志查看器静态文件
-- `GET /api/logs/db/*` - 数据库日志查询（无需认证）
+- `GET /api/logs/db/*` - 数据库日志查询
+- `POST /api/translation/*` - 翻译服务 API
 
 ### 代理端点
 
-所有其他请求都会被转发到目标 URL。例如：
+所有其他请求都会被转发到目标 URL。
+
+#### 示例：聊天补全请求
 
 ```bash
-# 转发到 TARGET_URL/v1/chat/completions
 curl -X POST http://localhost:3012/v1/chat/completions \
   -H "Authorization: Bearer your_api_token_here" \
   -H "Content-Type: application/json" \
-  -d '{"model": "gpt-4", "messages": [{"role": "user", "content": "Hello"}]}'
+  -d '{
+    "model": "gpt-4",
+    "messages": [
+      {"role": "user", "content": "Hello!"}
+    ]
+  }'
 ```
+
+#### 示例：流式响应
+
+```bash
+curl -X POST http://localhost:3012/v1/chat/completions \
+  -H "Authorization: Bearer your_api_token_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
+    "messages": [{"role": "user", "content": "Tell me a story"}],
+    "stream": true
+  }'
+```
+
+### 日志查询 API
+
+#### 查询日志
+
+```http
+GET /api/logs/db/query?limit=100&offset=0&startDate=2024-01-01&status=200
+```
+
+**查询参数：**
+- `limit` - 返回条数（默认 100）
+- `offset` - 偏移量（默认 0）
+- `startDate` - 开始日期（ISO 格式）
+- `endDate` - 结束日期（ISO 格式）
+- `model` - 模型名称筛选
+- `status` - HTTP 状态码筛选
+- `minDuration` - 最小耗时（毫秒）
+- `maxDuration` - 最大耗时（毫秒）
+
+**响应示例：**
+
+```json
+{
+  "entries": [
+    {
+      "id": 1,
+      "timestamp": "2024-01-01T12:00:00.000Z",
+      "path": "/v1/chat/completions",
+      "method": "POST",
+      "requestBody": {...},
+      "responseStatus": 200,
+      "responseBody": {...},
+      "duration": 1234
+    }
+  ],
+  "pagination": {
+    "total": 1000,
+    "limit": 100,
+    "offset": 0,
+    "hasMore": true
+  }
+}
+```
+
+#### 获取会话列表
+
+```http
+GET /api/logs/db/sessions?limit=50&offset=0
+```
+
+#### 获取会话日志
+
+```http
+GET /api/logs/db/sessions/:sessionId/logs
+```
+
+#### 获取模型列表
+
+```http
+GET /api/logs/db/models
+```
+
+#### 获取 Token 统计
+
+```http
+GET /api/logs/db/stats/tokens?startDate=2024-01-01
+```
+
+#### 获取每小时统计
+
+```http
+GET /api/logs/db/stats/hourly?startDate=2024-01-01
+```
+
+#### 数据库健康检查
+
+```http
+GET /api/logs/db/health
+```
+
+### 翻译服务 API
+
+翻译服务支持多种内容块类型的翻译，包括文本、工具调用、工具结果和图片。
+
+#### 支持的内容类型
+
+| 类型 | 说明 |
+|------|------|
+| `text` | 普通文本内容 |
+| `tool_use` | 工具调用块（包含 name 和 input） |
+| `tool_result` | 工具结果块（包含 tool_use_id 和 content） |
+| `image` | 图片内容（返回类型描述） |
+
+#### 检查翻译缓存
+
+```http
+POST /api/translation/check
+```
+
+**请求体：**
+
+```json
+{
+  "block": {
+    "type": "text",
+    "text": "Hello, world!"
+  },
+  "blockType": "text"
+}
+```
+
+**响应示例（有缓存）：**
+
+```json
+{
+  "hasCache": true,
+  "translatedText": "你好，世界！",
+  "sourceType": "text",
+  "hitCount": 5
+}
+```
+
+**响应示例（无缓存）：**
+
+```json
+{
+  "hasCache": false
+}
+```
+
+#### 执行翻译
+
+```http
+POST /api/translation/translate
+```
+
+**请求体：**
+
+```json
+{
+  "block": {
+    "type": "text",
+    "text": "Hello, world!"
+  }
+}
+```
+
+**响应示例（成功）：**
+
+```json
+{
+  "success": true,
+  "translatedText": "你好，世界！",
+  "fromCache": false,
+  "sourceType": "text"
+}
+```
+
+**响应示例（从缓存）：**
+
+```json
+{
+  "success": true,
+  "translatedText": "你好，世界！",
+  "fromCache": true,
+  "sourceType": "text",
+  "hitCount": 5
+}
+```
+
+**响应示例（失败）：**
+
+```json
+{
+  "success": false,
+  "error": "Translation failed: API error",
+  "sourceType": "text"
+}
+```
+
+#### 获取翻译统计
+
+```http
+GET /api/translation/stats
+```
+
+**响应示例：**
+
+```json
+{
+  "totalTranslations": 1000,
+  "cachedTranslations": 700,
+  "cacheHitRate": 0.7,
+  "bySourceType": {
+    "text": 800,
+    "tool_use": 150,
+    "tool_result": 50
+  }
+}
+```
+
+## 日志查看器
+
+访问内置日志查看器：
+
+```
+http://localhost:3012/viewer/
+```
+
+日志查看器提供以下功能：
+
+- 浏览所有 LLM 对话日志
+- 按会话分组查看
+- 按模型、状态、时间筛选
+- 查看 Token 使用统计
+- 查看每小时请求趋势
+- 健康状态监控
 
 ## 项目结构
 
 ```
 llm_gateway/
 ├── src/
-│   ├── index.js      # 主服务入口
-│   ├── db-logger.js  # SQLite 数据库日志
-│   └── api-db.js     # 数据库 API 路由
-├── viewer/           # 日志查看器前端
-├── scripts/          # 工具脚本
-│   └── migrate-logs.js  # 日志迁移脚本
-├── data/             # 数据库存储目录
-├── .env              # 环境变量配置
-└── package.json      # 项目依赖
+│   ├── index.js           # 主服务入口
+│   ├── db-logger.js       # SQLite 数据库日志记录器
+│   ├── api-db.js          # 数据库 API 路由
+│   ├── database.js        # 翻译数据库管理
+│   ├── translator.js      # 翻译服务核心逻辑
+│   ├── translation-api.js # 翻译 API 路由
+│   └── utils.js           # 工具函数
+├── viewer/                # 日志查看器前端
+│   └── dist/              # 构建输出目录
+├── scripts/               # 工具脚本
+│   └── migrate-logs.js    # 日志迁移脚本
+├── data/                  # 数据库存储目录
+│   └── chat-logs.db       # SQLite 数据库文件
+├── .env.example           # 环境变量示例
+├── .env                   # 环境变量配置（本地）
+├── package.json           # 项目依赖
+└── README.md              # 项目文档
 ```
 
 ## 技术栈
 
-- **Express.js** - Web 框架
-- **Axios** - HTTP 客户端
-- **Dotenv** - 环境变量管理
-- **SQLite** - 数据库存储
-- **better-sqlite3** - SQLite 驱动
+- **Express.js** (^4.18.2) - Web 框架
+- **Axios** (^1.6.0) - HTTP 客户端
+- **better-sqlite3** (^9.6.0) - SQLite 数据库驱动
+- **Dotenv** (^16.3.1) - 环境变量管理
+- **Node.js** - 运行时环境
 
 ## License
 
