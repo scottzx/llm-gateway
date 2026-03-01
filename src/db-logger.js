@@ -1,6 +1,7 @@
 const Database = require('better-sqlite3');
 const fs = require('fs').promises;
 const path = require('path');
+const { parseUserId, extractMessageIdFromSSE } = require('./utils');
 
 /**
  * DatabaseLogger - SQLite-based chat logger with automatic cleanup
@@ -82,8 +83,9 @@ class DatabaseLogger {
       INSERT INTO chat_logs (
         timestamp, path, method, request_body, request_query, request_headers,
         response_status, response_body, response_headers, duration, error_message,
-        model, prompt_tokens, completion_tokens, total_tokens
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        model, prompt_tokens, completion_tokens, total_tokens,
+        message_id, user_id, session_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
   }
 
@@ -108,6 +110,19 @@ class DatabaseLogger {
         totalTokens = entry.responseBody.usage.total_tokens || 0;
       }
 
+      // Extract user_id and session_id from metadata
+      let userId = null;
+      let sessionId = null;
+
+      if (entry.requestBody?.metadata?.user_id) {
+        const parsed = parseUserId(entry.requestBody.metadata.user_id);
+        userId = parsed.user_id;
+        sessionId = parsed.session_id;
+      }
+
+      // Extract message_id from response
+      const messageId = extractMessageIdFromSSE(entry.responseBody);
+
       // Insert into database
       const info = this.insertStmt.run(
         entry.timestamp || new Date().toISOString(),
@@ -124,7 +139,10 @@ class DatabaseLogger {
         model,
         promptTokens,
         completionTokens,
-        totalTokens
+        totalTokens,
+        messageId,
+        userId,
+        sessionId
       );
 
       return info.lastInsertRowid;
@@ -483,6 +501,142 @@ class DatabaseLogger {
   }
 
   /**
+   * Get list of sessions with summary information
+   * @param {Object} options - Query options
+   * @param {number} options.limit - Maximum number of sessions to return
+   * @param {number} options.offset - Offset for pagination
+   * @param {string} options.startDate - Filter sessions starting after this date
+   * @param {string} options.endDate - Filter sessions ending before this date
+   * @param {string} options.model - Filter by model
+   */
+  getSessions(options = {}) {
+    try {
+      const {
+        limit = 50,
+        offset = 0,
+        startDate,
+        endDate,
+        model
+      } = options;
+
+      let whereConditions = ['session_id IS NOT NULL'];
+      let params = [];
+
+      if (startDate) {
+        whereConditions.push('MIN(timestamp) >= ?');
+        params.push(startDate);
+      }
+      if (endDate) {
+        whereConditions.push('MAX(timestamp) <= ?');
+        params.push(endDate);
+      }
+      if (model) {
+        whereConditions.push('model = ?');
+        params.push(model);
+      }
+
+      const whereClause = whereConditions.join(' AND ');
+
+      const query = `
+        SELECT
+          session_id,
+          COUNT(*) as message_count,
+          MIN(timestamp) as start_time,
+          MAX(timestamp) as end_time,
+          SUM(total_tokens) as total_tokens,
+          SUM(prompt_tokens) as input_tokens,
+          SUM(completion_tokens) as output_tokens,
+          model,
+          MAX(id) as last_id
+        FROM chat_logs
+        WHERE ${whereClause}
+        GROUP BY session_id, model
+        ORDER BY start_time DESC
+        LIMIT ? OFFSET ?
+      `;
+
+      const stmt = this.db.prepare(query);
+      const sessions = stmt.all(...params, limit, offset);
+
+      // Get total count
+      const countQuery = `
+        SELECT COUNT(DISTINCT session_id) as count
+        FROM chat_logs
+        WHERE ${whereClause}
+      `;
+      const countStmt = this.db.prepare(countQuery);
+      const { count: total } = countStmt.get(...params);
+
+      return {
+        sessions: sessions.map(s => ({
+          sessionId: s.session_id,
+          messageCount: s.message_count,
+          startTime: s.start_time,
+          endTime: s.end_time,
+          totalTokens: s.total_tokens || 0,
+          inputTokens: s.input_tokens || 0,
+          outputTokens: s.output_tokens || 0,
+          model: s.model,
+          lastId: s.last_id
+        })),
+        pagination: {
+          total,
+          limit,
+          offset,
+          hasMore: (offset + sessions.length) < total
+        }
+      };
+    } catch (error) {
+      console.error('[DatabaseLogger] Get sessions failed:', error.message);
+      return { sessions: [], pagination: { total: 0, limit, offset, hasMore: false } };
+    }
+  }
+
+  /**
+   * Get logs for a specific session
+   * @param {string} sessionId - Session ID to query
+   * @param {Object} options - Query options
+   */
+  getSessionLogs(sessionId, options = {}) {
+    try {
+      const {
+        limit = 100,
+        offset = 0
+      } = options;
+
+      const baseFilters = {
+        limit,
+        offset
+      };
+
+      // Add session filter to WHERE clause
+      const entries = this.db.prepare(`
+        SELECT * FROM chat_logs
+        WHERE session_id = ?
+        ORDER BY timestamp ASC
+        LIMIT ? OFFSET ?
+      `).all(sessionId, limit, offset);
+
+      // Get total count for this session
+      const countStmt = this.db.prepare('SELECT COUNT(*) as count FROM chat_logs WHERE session_id = ?');
+      const { count: total } = countStmt.get(sessionId);
+
+      return {
+        entries: entries.map(row => this.parseRow(row)),
+        pagination: {
+          total,
+          limit,
+          offset,
+          hasMore: (offset + entries.length) < total
+        }
+      };
+    } catch (error) {
+      console.error('[DatabaseLogger] Get session logs failed:', error.message);
+      return { entries: [], pagination: { total: 0, limit, offset, hasMore: false } };
+    }
+  }
+
+  /**
    * Parse database row, converting JSON strings to objects
    */
   parseRow(row) {
@@ -502,7 +656,10 @@ class DatabaseLogger {
       model: row.model,
       promptTokens: row.prompt_tokens,
       completionTokens: row.completion_tokens,
-      totalTokens: row.total_tokens
+      totalTokens: row.total_tokens,
+      messageId: row.message_id,
+      userId: row.user_id,
+      sessionId: row.session_id
     };
   }
 

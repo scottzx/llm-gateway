@@ -26,7 +26,10 @@ CREATE TABLE IF NOT EXISTS chat_logs (
   model TEXT,                                      -- Model name extracted from request
   prompt_tokens INTEGER DEFAULT 0,                 -- Input token count
   completion_tokens INTEGER DEFAULT 0,             -- Output token count
-  total_tokens INTEGER DEFAULT 0                   -- Total token count
+  total_tokens INTEGER DEFAULT 0,                  -- Total token count
+  message_id TEXT,                                 -- Message ID from SSE response
+  user_id TEXT,                                    -- User ID extracted from metadata
+  session_id TEXT                                  -- Session ID extracted from metadata
 );
 
 -- Indexes for common query patterns
@@ -38,3 +41,10 @@ CREATE INDEX IF NOT EXISTS idx_model_timestamp ON chat_logs(model, timestamp DES
 
 -- Composite index for time-series queries
 CREATE INDEX IF NOT EXISTS idx_time_model ON chat_logs(timestamp, model);
+
+-- Indexes for ID tracking
+CREATE INDEX IF NOT EXISTS idx_message_id ON chat_logs(message_id);
+CREATE INDEX IF NOT EXISTS idx_user_id ON chat_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_session_id ON chat_logs(session_id);
+CREATE INDEX IF NOT EXISTS idx_user_session ON chat_logs(user_id, session_id);
+CREATE INDEX IF NOT EXISTS idx_user_timestamp ON chat_logs(user_id, timestamp DESC);

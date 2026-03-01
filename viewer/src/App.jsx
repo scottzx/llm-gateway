@@ -1,69 +1,143 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { fetchLogFiles, fetchLogData } from './lib/api';
+import {
+  fetchDBLogs,
+  fetchDBTokenStats,
+  fetchDBModels,
+  fetchDBHealth,
+  fetchDBSessionLogs,
+} from './lib/api';
 import { calculateTotalStats } from './lib/tokenAnalyzer';
 import ConversationTimeline from './components/ConversationTimeline';
 import ContextDetailPanel from './components/ContextDetailPanel';
 import TokenStats from './components/TokenStats';
 import TokenStatsDialog from './components/TokenStatsDialog';
-import { FileText, AlertCircle, Loader2, BarChart3 } from 'lucide-react';
+import LogFilters from './components/LogFilters';
+import DatabaseStatus from './components/DatabaseStatus';
+import SessionSelector from './components/SessionSelector';
+import { FileText, AlertCircle, Loader2, BarChart3, Database, Users } from 'lucide-react';
 
 function App() {
-  const [logFiles, setLogFiles] = useState([]);
-  const [selectedFile, setSelectedFile] = useState(null);
+  // 视图模式: 'all' (全部日志) 或 'session' (特定会话)
+  const [viewMode, setViewMode] = useState('all');
+
+  // 数据状态
   const [entries, setEntries] = useState([]);
   const [selectedEntry, setSelectedEntry] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // 加载日志文件列表
-  useEffect(() => {
-    const loadLogFiles = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const files = await fetchLogFiles();
-        setLogFiles(files);
-        // 自动选择第一个文件
-        if (files.length > 0) {
-          setSelectedFile(files[0]);
-        }
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
+  // 会话状态
+  const [selectedSessionId, setSelectedSessionId] = useState(null);
+
+  // 过滤器状态
+  const [filters, setFilters] = useState({
+    model: null,
+    status: null,
+    startDate: null,
+    endDate: null,
+  });
+
+  // 分页状态
+  const [pagination, setPagination] = useState({
+    limit: 100,
+    offset: 0,
+    total: 0,
+    hasMore: true,
+  });
+
+  // 可用模型列表
+  const [models, setModels] = useState([]);
+
+  // 数据库健康状态
+  const [dbHealth, setDbHealth] = useState(null);
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [lastHealthRefresh, setLastHealthRefresh] = useState(null);
+
+  // Token 统计数据（来自后端）
+  const [tokenStatsFromAPI, setTokenStatsFromAPI] = useState(null);
+
+  // 加载数据库日志
+  const loadEntries = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const result = await fetchDBLogs({
+        limit: pagination.limit,
+        offset: pagination.offset,
+        ...filters,
+      });
+
+      setEntries(result.entries);
+      setPagination((prev) => ({
+        ...prev,
+        total: result.pagination?.total || result.entries.length,
+        hasMore: result.pagination?.hasMore || false,
+      }));
+
+      // 选择第一条记录（仅在初始加载时）
+      if (pagination.offset === 0 && result.entries.length > 0) {
+        setSelectedEntry((prev) => prev || result.entries[0]);
       }
-    };
-    loadLogFiles();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.limit, pagination.offset, filters]);
+
+  // 加载数据库健康状态
+  const loadHealth = useCallback(async () => {
+    try {
+      setHealthLoading(true);
+      const health = await fetchDBHealth();
+      setDbHealth(health);
+      setLastHealthRefresh(new Date());
+    } catch (err) {
+      console.error('Failed to load database health:', err);
+    } finally {
+      setHealthLoading(false);
+    }
   }, []);
 
-  // 加载选中文件的数据
-  useEffect(() => {
-    const loadLogData = async () => {
-      if (!selectedFile) return;
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await fetchLogData(selectedFile);
-        setEntries(data);
-        // 选择第一条记录
-        if (data.length > 0) {
-          setSelectedEntry(data[0]);
-        } else {
-          setSelectedEntry(null);
-        }
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadLogData();
-  }, [selectedFile]);
+  // 加载模型列表
+  const loadModels = useCallback(async () => {
+    try {
+      const models = await fetchDBModels();
+      setModels(models);
+    } catch (err) {
+      console.error('Failed to load models:', err);
+    }
+  }, []);
 
-  // 处理文件切换
-  const handleFileChange = useCallback((file) => {
-    setSelectedFile(file);
+  // 初始加载
+  useEffect(() => {
+    loadModels();
+    loadHealth();
+    loadEntries(); // 初始加载数据
+
+    // 定期刷新数据库健康状态（每30秒）
+    const interval = setInterval(loadHealth, 30000);
+    return () => clearInterval(interval);
+  }, []); // 只在挂载时执行一次
+
+  // 当过滤器变化时，重置分页并加载数据
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, offset: 0 }));
+    loadEntries(); // 过滤器变化时重新加载
+  }, [filters.model, filters.status, filters.startDate, filters.endDate]);
+
+  // 当 offset 变化时加载数据（用于分页）
+  useEffect(() => {
+    if (pagination.offset > 0) {
+      loadEntries();
+    }
+  }, [pagination.offset]);
+
+  // 处理过滤器变化
+  const handleFilterChange = useCallback((newFilters) => {
+    setFilters(newFilters);
     setSelectedEntry(null);
   }, []);
 
@@ -72,7 +146,67 @@ function App() {
     setSelectedEntry(entry);
   }, []);
 
-  // 计算总 Token 统计 - Single source of truth
+  // 处理刷新
+  const handleRefresh = useCallback(() => {
+    loadEntries();
+    loadHealth();
+  }, [loadEntries, loadHealth]);
+
+  // 加载更多数据
+  const loadMore = useCallback(() => {
+    if (!pagination.hasMore || loading) return;
+    setPagination((prev) => ({
+      ...prev,
+      offset: prev.offset + prev.limit,
+    }));
+  }, [pagination.hasMore, pagination.limit, loading]);
+
+  // 加载会话日志
+  const loadSessionLogs = useCallback(async (sessionId) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const result = await fetchDBSessionLogs(sessionId, {
+        limit: 100,
+        offset: 0,
+      });
+
+      setEntries(result.entries);
+      setSelectedSessionId(sessionId);
+
+      // 选择第一条记录
+      if (result.entries.length > 0) {
+        setSelectedEntry(result.entries[0]);
+      } else {
+        setSelectedEntry(null);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // 处理会话选择
+  const handleSessionSelect = useCallback((sessionId) => {
+    setViewMode('session');
+    loadSessionLogs(sessionId);
+  }, [loadSessionLogs]);
+
+  // 返回全部日志视图
+  const handleBackToAll = useCallback(() => {
+    setViewMode('all');
+    setSelectedSessionId(null);
+    loadEntries();
+  }, [loadEntries]);
+
+  // 显示会话选择器按钮（在 header 中）
+  const handleShowSessions = useCallback(() => {
+    setViewMode('sessions');
+  }, []);
+
+  // 计算总 Token 统计 - 使用前端计算（保留用于单个请求详情）
   const totalStats = useMemo(() => calculateTotalStats(entries), [entries]);
 
   return (
@@ -83,36 +217,88 @@ function App() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-primary/10 rounded-lg">
-                <FileText className="w-6 h-6 text-primary" />
+                <Database className="w-6 h-6 text-primary" />
               </div>
               <div>
                 <h1 className="text-xl font-bold">LLM 对话上下文可视化</h1>
                 <p className="text-sm text-muted-foreground">
-                  理解 Messages API 的请求/响应结构、Token 计算和上下文管理
+                  基于 SQLite 数据库的日志查看器 - 支持筛选、分页和实时统计
                 </p>
               </div>
             </div>
 
-            {/* 文件选择器 */}
-            {logFiles.length > 0 && (
-              <select
-                value={selectedFile || ''}
-                onChange={(e) => handleFileChange(e.target.value)}
-                className="px-3 py-2 bg-background border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            {/* Header Actions */}
+            <div className="flex items-center gap-2">
+              {/* 会话选择按钮 */}
+              <button
+                onClick={handleShowSessions}
+                className="flex items-center gap-2 px-4 py-2 bg-background border rounded-md text-sm hover:bg-muted transition-colors"
+                title="查看会话列表"
               >
-                {logFiles.map((file) => (
-                  <option key={file} value={file}>
-                    {file}
-                  </option>
-                ))}
-              </select>
-            )}
+                <Users className="w-4 h-4" />
+                会话
+              </button>
+
+              {/* 刷新按钮 */}
+              <button
+                onClick={handleRefresh}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 bg-background border rounded-md text-sm hover:bg-muted transition-colors disabled:opacity-50"
+                title="刷新数据"
+              >
+                <BarChart3 className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                刷新
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Loading State */}
-      {loading && (
+      {/* Session View */}
+      {viewMode === 'sessions' && (
+        <div className="flex-1 flex overflow-hidden">
+          <SessionSelector
+            selectedSessionId={selectedSessionId}
+            onSessionSelect={handleSessionSelect}
+            onBack={handleBackToAll}
+          />
+        </div>
+      )}
+
+      {/* Filter & Timeline View */}
+      {viewMode !== 'sessions' && (
+        <>
+          {/* 过滤器 */}
+          {viewMode === 'all' && (
+            <LogFilters
+              filters={filters}
+              onFilterChange={handleFilterChange}
+              models={models}
+              totalRecords={pagination.total}
+            />
+          )}
+
+          {/* 会话信息提示 */}
+          {viewMode === 'session' && selectedSessionId && (
+            <div className="border-b bg-primary/10 px-4 py-2 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm">
+                <Users className="w-4 h-4 text-primary" />
+                <span className="font-medium">会话视图</span>
+                <span className="text-muted-foreground font-mono text-xs">
+                  {selectedSessionId.slice(0, 8)}...
+                </span>
+              </div>
+              <button
+                onClick={handleBackToAll}
+                className="text-xs text-primary hover:underline"
+              >
+                返回全部日志
+              </button>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {loading && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
@@ -122,7 +308,7 @@ function App() {
       )}
 
       {/* Error State */}
-      {error && !loading && (
+      {error && !loading && viewMode !== 'sessions' && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-md">
             <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
@@ -133,15 +319,35 @@ function App() {
       )}
 
       {/* Main Content */}
-      {!loading && !error && entries.length > 0 && (
+      {!loading && !error && entries.length > 0 && viewMode !== 'sessions' && (
         <div className="flex-1 flex overflow-hidden">
           {/* 左侧时间轴 */}
-          <div className="w-80 border-r bg-card overflow-y-auto">
-            <ConversationTimeline
-              entries={entries}
-              selectedEntry={selectedEntry}
-              onEntrySelect={handleEntrySelect}
-            />
+          <div className="w-80 border-r bg-card flex flex-col">
+            <div className="flex-1 overflow-y-auto">
+              <ConversationTimeline
+                entries={entries}
+                selectedEntry={selectedEntry}
+                onEntrySelect={handleEntrySelect}
+              />
+            </div>
+
+            {/* 加载更多按钮 */}
+            {pagination.hasMore && (
+              <div className="p-3 border-t bg-card">
+                <button
+                  onClick={loadMore}
+                  disabled={loading}
+                  className="w-full px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                >
+                  {loading ? '加载中...' : `加载更多 (剩余 ${pagination.total - entries.length} 条)`}
+                </button>
+              </div>
+            )}
+
+            {/* 分页信息 */}
+            <div className="px-3 py-2 border-t bg-muted/30 text-xs text-center text-muted-foreground">
+              显示 {entries.length} / {pagination.total.toLocaleString()} 条记录
+            </div>
           </div>
 
           {/* 右侧详情面板 */}
@@ -181,22 +387,41 @@ function App() {
       )}
 
       {/* Empty State */}
-      {!loading && !error && entries.length === 0 && (
+      {!loading && !error && entries.length === 0 && viewMode !== 'sessions' && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <Database className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-lg font-semibold mb-2">暂无数据</h2>
             <p className="text-muted-foreground">
-              该日志文件中没有找到对话记录
+              {viewMode === 'session'
+                ? '该会话中没有日志记录'
+                : Object.values(filters).some((v) => v !== null)
+                ? '没有符合筛选条件的记录，请尝试调整筛选条件'
+                : '数据库中暂无日志记录'}
             </p>
+            {viewMode === 'all' && Object.values(filters).some((v) => v !== null) && (
+              <button
+                onClick={() => handleFilterChange({ model: null, status: null, startDate: null, endDate: null })}
+                className="mt-4 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+              >
+                清除筛选条件
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="border-t bg-card py-2 px-4 text-xs text-muted-foreground text-center">
-        LLM Context Viewer - 帮助开发者理解 LLM 对话上下文的交互过程
-      </footer>
+      {/* Database Status Footer */}
+      {viewMode !== 'sessions' && (
+        <DatabaseStatus
+          health={dbHealth}
+          loading={healthLoading}
+          onRefresh={loadHealth}
+          lastRefresh={lastHealthRefresh}
+        />
+      )}
+      </>
+      )}
 
       {/* Token 统计弹窗 */}
       <TokenStatsDialog

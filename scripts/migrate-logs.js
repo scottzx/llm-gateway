@@ -15,6 +15,7 @@ require('dotenv').config();
 const fs = require('fs').promises;
 const path = require('path');
 const DatabaseLogger = require('../src/db-logger');
+const { parseUserId, extractMessageIdFromSSE } = require('../src/utils');
 
 const CHAT_LOG_DIR = process.env.CHAT_LOG_DIR || 'logs';
 const DB_LOG_PATH = process.env.DB_LOG_PATH || './data/chat-logs.db';
@@ -212,6 +213,18 @@ async function migrate() {
         // 提取 token 信息
         const tokens = extractTokens(entry);
 
+        // 提取 user_id 和 session_id
+        let userId = null;
+        let sessionId = null;
+        if (entry.requestBody?.metadata?.user_id) {
+          const parsed = parseUserId(entry.requestBody.metadata.user_id);
+          userId = parsed.user_id;
+          sessionId = parsed.session_id;
+        }
+
+        // 提取 message_id
+        const messageId = extractMessageIdFromSSE(entry.responseBody);
+
         // 插入数据库
         dbLogger.log({
           timestamp: entry.timestamp,
@@ -228,7 +241,10 @@ async function migrate() {
           model: entry.requestBody?.model || null,
           promptTokens: tokens.promptTokens,
           completionTokens: tokens.completionTokens,
-          totalTokens: tokens.totalTokens
+          totalTokens: tokens.totalTokens,
+          messageId,
+          userId,
+          sessionId
         });
 
         importedEntries++;

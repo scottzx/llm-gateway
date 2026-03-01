@@ -131,6 +131,54 @@ function registerDBRoutes(app, dbLogger) {
   });
 
   /**
+   * GET /api/logs/db/sessions
+   * Get list of sessions with summary information
+   */
+  app.get('/api/logs/db/sessions', (req, res) => {
+    try {
+      const {
+        limit = 50,
+        offset = 0,
+        startDate,
+        endDate,
+        model
+      } = req.query;
+
+      const result = dbLogger.getSessions({
+        limit: parseInt(limit) || 50,
+        offset: parseInt(offset) || 0,
+        startDate,
+        endDate,
+        model
+      });
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * GET /api/logs/db/sessions/:sessionId/logs
+   * Get logs for a specific session
+   */
+  app.get('/api/logs/db/sessions/:sessionId/logs', (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const { limit = 100, offset = 0 } = req.query;
+
+      const result = dbLogger.getSessionLogs(sessionId, {
+        limit: parseInt(limit) || 100,
+        offset: parseInt(offset) || 0
+      });
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
    * GET /api/logs/db/:id
    * Get a single log entry by ID
    */
