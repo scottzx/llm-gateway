@@ -107,14 +107,30 @@ class TranslationService {
         throw new Error('Invalid API response format');
       }
     } catch (error) {
-      // 更详细的错误处理
+      // 更详细的错误处理和日志
+      console.error('[Translation API Error]', {
+        endpoint: this.apiEndpoint,
+        model: this.model,
+        timeout: this.timeout,
+        error: error.message,
+        stack: error.stack
+      });
+
       if (error.response) {
         // API 返回了错误响应
         const status = error.response.status;
         const data = error.response.data;
+        console.error('[Translation API Response Error]', {
+          status,
+          data: JSON.stringify(data)
+        });
         throw new Error(`API error ${status}: ${JSON.stringify(data)}`);
       } else if (error.request) {
         // 请求已发出但没有收到响应
+        console.error('[Translation API Network Error]', {
+          message: error.message,
+          code: error.code
+        });
         throw new Error(`API request timeout or network error: ${error.message}`);
       } else {
         // 其他错误
@@ -165,6 +181,12 @@ class TranslationService {
 
     // 执行翻译
     try {
+      console.log('[Translation] Starting translation', {
+        type,
+        textLength: text.length,
+        contentHash
+      });
+
       const translatedText = await this.translateWithAPI(text);
 
       // 保存到数据库
@@ -175,6 +197,11 @@ class TranslationService {
         sourceType: type
       });
 
+      console.log('[Translation] Translation completed successfully', {
+        type,
+        contentHash
+      });
+
       return {
         success: true,
         translatedText,
@@ -182,6 +209,12 @@ class TranslationService {
         sourceType: type
       };
     } catch (error) {
+      console.error('[Translation] Translation failed', {
+        type,
+        contentHash,
+        error: error.message,
+        stack: error.stack
+      });
       return {
         success: false,
         error: error.message,

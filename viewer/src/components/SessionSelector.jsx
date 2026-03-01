@@ -93,7 +93,7 @@ function SessionCard({ session, isSelected, onClick }) {
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">模型:</span>
-            <span className="font-mono">{session.model}</span>
+            <span className="font-mono text-right" style={{maxWidth: '60%'}}>{session.models || session.model || 'N/A'}</span>
           </div>
           {session.totalTokens > 0 && (
             <>

@@ -75,7 +75,98 @@ function extractMessageIdFromSSE(responseBody) {
   return null;
 }
 
+/**
+ * 从响应体中提取 token usage 信息
+ * 支持多种格式：
+ * - 标准JSON: {"usage": {"prompt_tokens": 12, "completion_tokens": 392, ...}}
+ * - SSE流: message_delta事件中的usage字段
+ * @param {string|object} responseBody - 响应体内容
+ * @returns {{prompt_tokens: number, completion_tokens: number, total_tokens: number}|null}
+ */
+function extractUsageFromResponse(responseBody) {
+  if (!responseBody) {
+    return null;
+  }
+
+  // 如果是对象，尝试获取 usage
+  if (typeof responseBody === 'object') {
+    // 标准 OpenAI 格式
+    if (responseBody.usage) {
+      return {
+        prompt_tokens: responseBody.usage.prompt_tokens || 0,
+        completion_tokens: responseBody.usage.completion_tokens || 0,
+        total_tokens: responseBody.usage.total_tokens || 0
+      };
+    }
+    return null;
+  }
+
+  // 如果是字符串，需要先处理可能的JSON包装
+  if (typeof responseBody === 'string') {
+    let content = responseBody;
+
+    // 首先尝试解析JSON（数据库存储格式）
+    if (content.startsWith('"') && content.endsWith('"')) {
+      try {
+        const parsed = JSON.parse(content);
+        if (typeof parsed === 'string') {
+          content = parsed;
+        }
+      } catch (e) {
+        // 解析失败，使用原始字符串
+      }
+    }
+
+    // 1. 检查是否是包含 usage 的JSON对象
+    if (content.trim().startsWith('{')) {
+      try {
+        const jsonObj = JSON.parse(content);
+        if (jsonObj.usage) {
+          return {
+            prompt_tokens: jsonObj.usage.prompt_tokens || 0,
+            completion_tokens: jsonObj.usage.completion_tokens || 0,
+            total_tokens: jsonObj.usage.total_tokens || 0
+          };
+        }
+      } catch (e) {
+        // 不是有效的JSON，继续处理
+      }
+    }
+
+    // 2. 尝试匹配标准格式的usage
+    const standardMatch = content.match(/"usage":\s*\{[^}]*"prompt_tokens":\s*(\d+)[^}]*"completion_tokens":\s*(\d+)/);
+    if (standardMatch) {
+      return {
+        prompt_tokens: parseInt(standardMatch[1]) || 0,
+        completion_tokens: parseInt(standardMatch[2]) || 0,
+        total_tokens: (parseInt(standardMatch[1]) || 0) + (parseInt(standardMatch[2]) || 0)
+      };
+    }
+
+    // 3. 尝试匹配 SSE message_delta 事件中的 usage
+    // 找到最后一个 message_delta 事件中的 usage
+    const deltaMatches = content.split('event: message_delta').slice(1);
+    for (const deltaEvent of deltaMatches) {
+      const usageMatch = deltaEvent.match(/"usage":\s*\{[^}]*"input_tokens":\s*(\d+)[^}]*"output_tokens":\s*(\d+)/);
+      if (usageMatch) {
+        const inputTokens = parseInt(usageMatch[1]) || 0;
+        const outputTokens = parseInt(usageMatch[2]) || 0;
+        return {
+          prompt_tokens: inputTokens,
+          completion_tokens: outputTokens,
+          total_tokens: inputTokens + outputTokens
+        };
+      }
+    }
+
+    return null;
+  }
+
+  return null;
+}
+
 module.exports = {
   parseUserId,
-  extractMessageIdFromSSE
+  extractMessageIdFromSSE,
+  extractUsageFromResponse
 };

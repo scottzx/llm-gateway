@@ -117,8 +117,27 @@ function ContentBlock({ block, role }) {
         throw new Error(data.error || '翻译失败');
       }
     } catch (err) {
+      // Log error for debugging
+      console.error('[MessageCard] Translation failed', {
+        blockType: block.type,
+        error: err.message,
+        stack: err.stack
+      });
+
+      // Convert technical errors to user-friendly messages
+      let userMessage = err.message;
+      if (err.message.includes('API error 401')) {
+        userMessage = '翻译服务认证失败，请检查 API 配置';
+      } else if (err.message.includes('API error 403')) {
+        userMessage = '翻译服务权限不足，请检查 API Token';
+      } else if (err.message.includes('timeout') || err.message.includes('network')) {
+        userMessage = '翻译服务连接超时，请稍后重试';
+      } else if (err.message.includes('API error')) {
+        userMessage = '翻译服务暂时不可用，请稍后重试';
+      }
+
       // 显示错误提示
-      alert(`翻译失败：${err.message}`);
+      alert(`翻译失败：${userMessage}`);
       setTranslationState(prev => ({
         ...prev,
         isLoading: false,
@@ -349,8 +368,27 @@ function SystemPromptItem({ item, idx }) {
         throw new Error(data.error || '翻译失败');
       }
     } catch (err) {
+      // Log error for debugging
+      console.error('[SystemPromptItem] Translation failed', {
+        blockType: 'text',
+        error: err.message,
+        stack: err.stack
+      });
+
+      // Convert technical errors to user-friendly messages
+      let userMessage = err.message;
+      if (err.message.includes('API error 401')) {
+        userMessage = '翻译服务认证失败，请检查 API 配置';
+      } else if (err.message.includes('API error 403')) {
+        userMessage = '翻译服务权限不足，请检查 API Token';
+      } else if (err.message.includes('timeout') || err.message.includes('network')) {
+        userMessage = '翻译服务连接超时，请稍后重试';
+      } else if (err.message.includes('API error')) {
+        userMessage = '翻译服务暂时不可用，请稍后重试';
+      }
+
       // 显示错误提示
-      alert(`翻译失败：${err.message}`);
+      alert(`翻译失败：${userMessage}`);
       setTranslationState(prev => ({
         ...prev,
         isLoading: false,

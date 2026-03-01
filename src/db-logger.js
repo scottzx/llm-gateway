@@ -1,7 +1,7 @@
 const Database = require('better-sqlite3');
 const fs = require('fs').promises;
 const path = require('path');
-const { parseUserId, extractMessageIdFromSSE } = require('./utils');
+const { parseUserId, extractMessageIdFromSSE, extractUsageFromResponse } = require('./utils');
 
 /**
  * DatabaseLogger - SQLite-based chat logger with automatic cleanup
@@ -103,11 +103,12 @@ class DatabaseLogger {
       let completionTokens = 0;
       let totalTokens = 0;
 
-      if (entry.responseBody?.usage) {
-        // Standard OpenAI format
-        promptTokens = entry.responseBody.usage.prompt_tokens || 0;
-        completionTokens = entry.responseBody.usage.completion_tokens || 0;
-        totalTokens = entry.responseBody.usage.total_tokens || 0;
+      // 尝试使用新的提取函数（支持SSE和标准格式）
+      const usage = extractUsageFromResponse(entry.responseBody);
+      if (usage) {
+        promptTokens = usage.prompt_tokens;
+        completionTokens = usage.completion_tokens;
+        totalTokens = usage.total_tokens;
       }
 
       // Extract user_id and session_id from metadata
@@ -546,11 +547,11 @@ class DatabaseLogger {
           SUM(total_tokens) as total_tokens,
           SUM(prompt_tokens) as input_tokens,
           SUM(completion_tokens) as output_tokens,
-          model,
+          GROUP_CONCAT(DISTINCT model) as models,
           MAX(id) as last_id
         FROM chat_logs
         WHERE ${whereClause}
-        GROUP BY session_id, model
+        GROUP BY session_id
         ORDER BY start_time DESC
         LIMIT ? OFFSET ?
       `;
