@@ -206,8 +206,8 @@ class DatabaseLogger {
         params.push(maxDuration);
       }
 
-      // Order by timestamp desc (newest first)
-      query += ' ORDER BY timestamp DESC';
+      // Order by timestamp asc (oldest first)
+      query += ' ORDER BY timestamp ASC';
 
       // Pagination
       query += ' LIMIT ? OFFSET ?';

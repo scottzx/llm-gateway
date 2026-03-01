@@ -73,7 +73,7 @@ function App() {
         ...filters,
       });
 
-      setEntries(result.entries);
+      setEntries(result.entries.map((entry, index) => ({ ...entry, index })));
       setPagination((prev) => ({
         ...prev,
         total: result.pagination?.total || result.entries.length,
@@ -205,7 +205,7 @@ function App() {
         ...filters,  // 传递筛选条件
       });
 
-      setEntries(result.entries);
+      setEntries(result.entries.map((entry, index) => ({ ...entry, index })));
       setSelectedSessionId(sessionId);
 
       // 更新分页信息

@@ -28,7 +28,7 @@ function ConversationTimeline({ entries, selectedEntry, onEntrySelect }) {
                   'flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium',
                   isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                 )}>
-                  {index + 1}
+                  {entry.index !== undefined ? entry.index + 1 : index + 1}
                 </span>
                 <span className="text-xs font-medium truncate max-w-[150px]">
                   {entry.path}
