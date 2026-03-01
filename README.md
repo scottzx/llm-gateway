@@ -21,7 +21,7 @@ A local gateway service for forwarding HTTP requests to target LLM APIs (OpenAI,
 ## 功能特性
 
 - **HTTP 请求转发代理** - 将所有请求转发到配置的目标 URL
-- **Bearer Token 认证** - 支持 API Token 验证
+- **透明代理模式** - 直接将 Authorization header 转发到上游服务，由上游处理认证
 - **SQLite 数据库日志存储** - 持久化存储所有 LLM 对话记录
 - **自动日志清理** - 可配置的日志保留策略
 - **翻译服务** - 基于 ModelScope API 的文本翻译功能
@@ -48,8 +48,8 @@ PORT=3012
 # 目标转发 URL（必填）
 TARGET_URL=https://api.openai.com
 
-# API 认证 Token（必填）
-API_TOKEN=your-api-token-here
+# 注意：Gateway 是透明代理模式，API Token 将直接转发到上游服务
+# 在请求中添加 Authorization header 即可
 ```
 
 ### 启动服务
@@ -70,9 +70,10 @@ npm run dev
 |------|:----:|--------|------|
 | `PORT` | 否 | `3000` | Gateway 服务端口 |
 | `TARGET_URL` | 是 | - | 目标转发 URL |
-| `API_TOKEN` | 是 | - | API 认证 Token |
 | `TIMEOUT` | 否 | `60000` | 请求超时时间（毫秒） |
 | `LOG_ENABLED` | 否 | `false` | 是否开启请求日志 |
+
+**注意：** Gateway 现在运行在透明代理模式下，不再验证 `API_TOKEN`。请求中的 `Authorization` header 将被原样转发到上游服务，由上游服务处理认证。
 
 ### 数据库日志配置
 
@@ -94,13 +95,15 @@ npm run dev
 
 ## API 文档
 
-### 认证
+### 透明代理模式
 
-除公开端点外，所有请求都需要携带 Bearer Token：
+Gateway 运行在透明代理模式，不会验证 Bearer Token。所有请求中的 `Authorization` header 将被原样转发到上游服务，由上游服务处理认证和错误返回。
 
 ```http
-Authorization: Bearer your_api_token_here
+Authorization: Bearer your_upstream_api_token
 ```
+
+如果上游服务认证失败，Gateway 会直接返回上游服务的错误响应。
 
 ### 公开端点
 
@@ -119,7 +122,7 @@ Authorization: Bearer your_api_token_here
 
 ```bash
 curl -X POST http://localhost:3012/v1/chat/completions \
-  -H "Authorization: Bearer your_api_token_here" \
+  -H "Authorization: Bearer your_upstream_api_token" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-4",
@@ -129,11 +132,13 @@ curl -X POST http://localhost:3012/v1/chat/completions \
   }'
 ```
 
+**注意：** `your_upstream_api_token` 应该是上游服务（如 OpenAI）的有效 API Token，Gateway 会将其原样转发。
+
 #### 示例：流式响应
 
 ```bash
 curl -X POST http://localhost:3012/v1/chat/completions \
-  -H "Authorization: Bearer your_api_token_here" \
+  -H "Authorization: Bearer your_upstream_api_token" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-4",

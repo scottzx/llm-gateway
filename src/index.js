@@ -9,7 +9,6 @@ const PORT = process.env.PORT || 3000;
 const TARGET_URL = process.env.TARGET_URL;
 const TIMEOUT = parseInt(process.env.TIMEOUT) || 60000;
 const LOG_ENABLED = process.env.LOG_ENABLED === 'true';
-const API_TOKEN = process.env.API_TOKEN;
 
 // 日志系统配置 - SQLite 数据库
 const DB_LOG_ENABLED = process.env.DB_LOG_ENABLED === 'true';
@@ -57,22 +56,6 @@ registerTranslationRoutes(app);
 
 // 静态文件服务 - Viewer 应用（不需要认证）
 app.use('/viewer', express.static(path.join(__dirname, '../viewer/dist')));
-
-// 认证中间件
-const authMiddleware = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing or invalid Authorization header' });
-  }
-
-  const token = authHeader.substring(7);
-  if (token !== API_TOKEN) {
-    return res.status(403).json({ error: 'Invalid API token' });
-  }
-
-  next();
-};
 
 // 代理中间件
 const proxyMiddleware = async (req, res) => {
@@ -212,10 +195,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// 应用认证中间件到所有代理路由
-app.use(authMiddleware);
-
-// 代理所有请求
+// 代理所有请求（透明代理模式 - 直接转发 Authorization header 到上游服务）
 app.all('/*', proxyMiddleware);
 
 // 启动服务器
