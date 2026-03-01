@@ -28,3 +28,5 @@ dist
 .data
 .playwright-mcp
 
+data/chat-logs.db-shm
+data/chat-logs.db-wal

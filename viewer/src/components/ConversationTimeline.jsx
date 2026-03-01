@@ -14,7 +14,7 @@ function ConversationTimeline({ entries, selectedEntry, onEntrySelect }) {
 
         return (
           <button
-            key={entry.index}
+            key={entry.id || entry.index}
             onClick={() => onEntrySelect(entry)}
             className={cn(
               'w-full text-left p-3 rounded-lg transition-all hover:bg-accent',
