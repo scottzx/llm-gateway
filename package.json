@@ -13,7 +13,7 @@
     "forward"
   ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "axios": "^1.6.0",
     "better-sqlite3": "^9.6.0",

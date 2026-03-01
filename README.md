@@ -1,5 +1,7 @@
 # LLM Gateway
 
+A local gateway service for forwarding HTTP requests to target LLM APIs (OpenAI, Claude, etc.).
+
 本地网关服务，用于转发 HTTP 请求到目标 LLM API。
 
 ## 功能特性
@@ -104,6 +106,6 @@ llm_gateway/
 - **Dotenv** - 环境变量管理
 - **http-proxy-middleware** - 代理中间件
 
-## 许可证
+## License
 
-ISC
+MIT License - see [LICENSE](LICENSE) for details.
