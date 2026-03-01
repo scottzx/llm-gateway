@@ -1,5 +1,6 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 
 /**
@@ -8,8 +9,14 @@ const crypto = require('crypto');
  */
 class TranslationDatabase {
   constructor(dbPath = null) {
-    // 默认使用项目根目录下的 translations.db
-    const dbFilePath = dbPath || path.join(process.cwd(), 'translations.db');
+    // 确保 data 目录存在
+    const dataDir = path.join(process.cwd(), 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+
+    // 使用 data 目录下的 translations.db
+    const dbFilePath = dbPath || path.join(process.cwd(), 'data', 'translations.db');
     this.db = new Database(dbFilePath);
     this.initDatabase();
   }
