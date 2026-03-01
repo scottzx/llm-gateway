@@ -25,7 +25,6 @@ Thumbs.db
 tmp/
 temp/
 dist
-translations.db
 .data
 .playwright-mcp
 
