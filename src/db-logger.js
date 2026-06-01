@@ -436,6 +436,12 @@ class DatabaseLogger {
   startCleanupTask() {
     const cleanupInterval = 60 * 60 * 1000; // 1 hour
 
+    // Run cleanup immediately on startup (with a small 5-second delay to avoid blocking startup initialization)
+    setTimeout(() => {
+      console.log('[DatabaseLogger] Running initial log cleanup on startup...');
+      this.cleanupOldLogs();
+    }, 5000);
+
     this.cleanupTimer = setInterval(() => {
       this.cleanupOldLogs();
     }, cleanupInterval);
@@ -535,26 +541,45 @@ class DatabaseLogger {
         offset = 0,
         startDate,
         endDate,
-        model
+        model,
+        search,
+        sortBy = 'startTime',
+        sortOrder = 'DESC'
       } = options;
 
       let whereConditions = ['session_id IS NOT NULL'];
       let params = [];
 
       if (startDate) {
-        whereConditions.push('MIN(timestamp) >= ?');
+        whereConditions.push('timestamp >= ?');
         params.push(startDate);
       }
       if (endDate) {
-        whereConditions.push('MAX(timestamp) <= ?');
+        whereConditions.push('timestamp <= ?');
         params.push(endDate);
       }
       if (model) {
         whereConditions.push('model = ?');
         params.push(model);
       }
+      if (search) {
+        whereConditions.push('session_id LIKE ?');
+        params.push(`%${search}%`);
+      }
 
       const whereClause = whereConditions.join(' AND ');
+
+      // Map sortBy to SQL column
+      let orderByCol = 'start_time';
+      if (sortBy === 'endTime') {
+        orderByCol = 'end_time';
+      } else if (sortBy === 'messageCount') {
+        orderByCol = 'message_count';
+      } else if (sortBy === 'totalTokens') {
+        orderByCol = 'total_tokens';
+      }
+
+      const orderDirection = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
       const query = `
         SELECT
@@ -570,7 +595,7 @@ class DatabaseLogger {
         FROM chat_logs
         WHERE ${whereClause}
         GROUP BY session_id
-        ORDER BY start_time DESC
+        ORDER BY ${orderByCol} ${orderDirection}
         LIMIT ? OFFSET ?
       `;
 

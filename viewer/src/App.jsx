@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   fetchDBLogs,
-  fetchDBTokenStats,
   fetchDBModels,
   fetchDBHealth,
   fetchDBSessionLogs,
@@ -15,10 +14,10 @@ import TokenStatsDialog from './components/TokenStatsDialog';
 import LogFilters from './components/LogFilters';
 import DatabaseStatus from './components/DatabaseStatus';
 import SessionSelector from './components/SessionSelector';
-import { FileText, AlertCircle, Loader2, BarChart3, Database, Users } from 'lucide-react';
+import { AlertCircle, Loader2, BarChart3, Database, Users, ArrowLeft, RefreshCw } from 'lucide-react';
 
 function App() {
-  // 视图模式: 'all' (全部日志) 或 'session' (特定会话)
+  // 视图模式: 'all' (全部日志), 'session' (特定会话的日志), 或 'sessions' (会话列表)
   const [viewMode, setViewMode] = useState('all');
 
   // 数据状态
@@ -58,9 +57,6 @@ function App() {
   const [healthLoading, setHealthLoading] = useState(false);
   const [lastHealthRefresh, setLastHealthRefresh] = useState(null);
 
-  // Token 统计数据（来自后端）
-  const [tokenStatsFromAPI, setTokenStatsFromAPI] = useState(null);
-
   // 加载数据库日志
   const loadEntries = useCallback(async () => {
     try {
@@ -82,7 +78,7 @@ function App() {
 
       // 选择第一条记录（仅在初始加载时）
       if (pagination.offset === 0 && result.entries.length > 0) {
-        setSelectedEntry((prev) => prev || result.entries[0]);
+        setSelectedEntry(result.entries[0]);
       }
     } catch (err) {
       setError(err.message);
@@ -139,23 +135,29 @@ function App() {
   useEffect(() => {
     loadModels();
     loadHealth();
-    loadEntries(); // 初始加载数据
+    loadEntries();
 
     // 定期刷新数据库健康状态（每30秒）
     const interval = setInterval(loadHealth, 30000);
     return () => clearInterval(interval);
-  }, []); // 只在挂载时执行一次
+  }, []);
 
   // 当过滤器变化时，重置分页并加载数据
   useEffect(() => {
-    setPagination((prev) => ({ ...prev, offset: 0 }));
-    loadEntries(); // 过滤器变化时重新加载
-  }, [filters.model, filters.status, filters.startDate, filters.endDate]);
+    if (viewMode === 'all') {
+      setPagination((prev) => ({ ...prev, offset: 0 }));
+      loadEntries();
+    }
+  }, [filters.model, filters.status, filters.startDate, filters.endDate, viewMode]);
 
   // 当 offset 变化时加载数据（用于分页）
   useEffect(() => {
     if (pagination.offset > 0) {
-      loadEntries();
+      if (viewMode === 'all') {
+        loadEntries();
+      } else if (viewMode === 'session' && selectedSessionId) {
+        loadSessionLogs(selectedSessionId);
+      }
     }
   }, [pagination.offset]);
 
@@ -165,7 +167,7 @@ function App() {
       setPagination((prev) => ({ ...prev, offset: 0 }));
       loadSessionLogs(selectedSessionId);
     }
-  }, [filters.model, filters.status, filters.startDate, filters.endDate]);
+  }, [filters.model, filters.status, filters.startDate, filters.endDate, selectedSessionId]);
 
   // 处理过滤器变化
   const handleFilterChange = useCallback((newFilters) => {
@@ -180,9 +182,13 @@ function App() {
 
   // 处理刷新
   const handleRefresh = useCallback(() => {
-    loadEntries();
     loadHealth();
-  }, [loadEntries, loadHealth]);
+    if (viewMode === 'all') {
+      loadEntries();
+    } else if (viewMode === 'session' && selectedSessionId) {
+      loadSessionLogs(selectedSessionId);
+    }
+  }, [loadEntries, loadHealth, viewMode, selectedSessionId]);
 
   // 加载更多数据
   const loadMore = useCallback(() => {
@@ -202,7 +208,7 @@ function App() {
       const result = await fetchDBSessionLogs(sessionId, {
         limit: pagination.limit,
         offset: pagination.offset,
-        ...filters,  // 传递筛选条件
+        ...filters,
       });
 
       setEntries(result.entries.map((entry, index) => ({ ...entry, index })));
@@ -252,244 +258,244 @@ function App() {
     });
     setViewMode('all');
     setSelectedSessionId(null);
+    setPagination((prev) => ({ ...prev, offset: 0 }));
     loadEntries();
   }, [loadEntries]);
 
-  // 显示会话选择器按钮（在 header 中）
-  const handleShowSessions = useCallback(() => {
-    setViewMode('sessions');
-  }, []);
-
-  // 计算总 Token 统计 - 使用前端计算（保留用于单个请求详情）
+  // 计算总 Token 统计
   const totalStats = useMemo(() => calculateTotalStats(entries), [entries]);
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Database className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold">LLM 对话上下文可视化</h1>
-                <p className="text-sm text-muted-foreground">
-                  基于 SQLite 数据库的日志查看器 - 支持筛选、分页和实时统计
-                </p>
-              </div>
+    <div className="h-screen flex flex-col bg-background overflow-hidden text-foreground">
+      {/* Premium Header */}
+      <header className="border-b bg-card py-3 px-6 shadow-sm flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-primary/10 rounded-xl">
+              <Database className="w-5 h-5 text-primary" />
             </div>
-
-            {/* Header Actions */}
-            <div className="flex items-center gap-2">
-              {/* 会话选择按钮 */}
-              <button
-                onClick={handleShowSessions}
-                className="flex items-center gap-2 px-4 py-2 bg-background border rounded-md text-sm hover:bg-muted transition-colors"
-                title="查看会话列表"
-              >
-                <Users className="w-4 h-4" />
-                会话
-              </button>
-
-              {/* 刷新按钮 */}
-              <button
-                onClick={handleRefresh}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-background border rounded-md text-sm hover:bg-muted transition-colors disabled:opacity-50"
-                title="刷新数据"
-              >
-                <BarChart3 className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                刷新
-              </button>
+            <div>
+              <h1 className="text-md font-bold leading-tight">LLM Gateway 日志查看器</h1>
+              <p className="text-[11px] text-muted-foreground">
+                本地网关日志持久化 & 上下文管理面板
+              </p>
             </div>
+          </div>
+
+          {/* Header Actions */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-background border rounded-lg text-xs font-semibold hover:bg-muted transition-colors disabled:opacity-50"
+              title="刷新数据"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              刷新
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Session View */}
-      {viewMode === 'sessions' && (
-        <div className="flex-1 flex overflow-hidden">
-          <SessionSelector
-            selectedSessionId={selectedSessionId}
-            onSessionSelect={handleSessionSelect}
-            onBack={handleBackToAll}
-          />
-        </div>
-      )}
-
-      {/* Filter & Timeline View */}
-      {viewMode !== 'sessions' && (
-        <>
-          {/* 过滤器 - 在全部日志和会话视图都显示 */}
-          {(viewMode === 'all' || viewMode === 'session') && (
-            <LogFilters
-              filters={filters}
-              onFilterChange={handleFilterChange}
-              models={viewMode === 'session' ? (sessionModels || []) : models}
-              totalRecords={pagination.total}
-              viewMode={viewMode}
-            />
-          )}
-
-          {/* 会话信息提示 */}
-          {viewMode === 'session' && selectedSessionId && (
-            <div className="border-b bg-primary/10 px-4 py-2">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="w-4 h-4 text-primary" />
-                  <span className="font-medium">会话视图</span>
-                  <span className="text-muted-foreground font-mono text-xs">
-                    {selectedSessionId.slice(0, 8)}...
-                  </span>
-                </div>
+      {/* Main Unified Dashboard Container */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar Pane (Unified Navigation, Filtering & Timeline) */}
+        <div className="w-[360px] border-r bg-card flex flex-col flex-shrink-0 overflow-hidden">
+          {/* Tab Switcher / Session Header */}
+          {viewMode === 'session' && selectedSessionId ? (
+            <div className="p-3 border-b bg-primary/5 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <button
-                  onClick={handleBackToAll}
-                  className="text-xs text-primary hover:underline"
+                  onClick={() => {
+                    setSelectedSessionId(null);
+                    setViewMode('sessions');
+                  }}
+                  className="p-1.5 hover:bg-muted border rounded-lg transition-colors flex-shrink-0"
+                  title="返回会话列表"
                 >
-                  返回全部日志
+                  <ArrowLeft className="w-3.5 h-3.5 text-primary" />
+                </button>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-xs text-foreground truncate" title={selectedSessionId}>
+                    会话: {selectedSessionId.slice(0, 12)}...
+                  </h3>
+                  <span className="text-[10px] text-muted-foreground">会话对话历史</span>
+                </div>
+              </div>
+              <button
+                onClick={handleBackToAll}
+                className="text-[10px] text-primary hover:underline font-semibold flex-shrink-0"
+              >
+                返回全部
+              </button>
+            </div>
+          ) : (
+            <div className="p-3 border-b bg-card flex-shrink-0">
+              <div className="flex bg-muted p-1 rounded-xl">
+                <button
+                  onClick={() => {
+                    setViewMode('all');
+                    setSelectedSessionId(null);
+                  }}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                    viewMode === 'all'
+                      ? 'bg-background shadow-sm text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  🕒 实时日志
+                </button>
+                <button
+                  onClick={() => {
+                    setViewMode('sessions');
+                    setSelectedSessionId(null);
+                  }}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                    viewMode === 'sessions'
+                      ? 'bg-background shadow-sm text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  💬 对话会话
                 </button>
               </div>
-              {/* 显示当前筛选状态 */}
-              {Object.values(filters).some((v) => v !== null) && (
-                <div className="text-xs text-muted-foreground">
-                  已应用筛选条件，显示该会话中符合条件的结果
-                  {pagination.total > 0 && (
-                    <span className="ml-1">（共 {pagination.total.toLocaleString()} 条）</span>
+            </div>
+          )}
+
+          {/* Sidebar Body */}
+          <div className="flex-1 overflow-y-auto flex flex-col">
+            {viewMode === 'sessions' ? (
+              <SessionSelector
+                selectedSessionId={selectedSessionId}
+                onSessionSelect={handleSessionSelect}
+                onBack={handleBackToAll}
+              />
+            ) : (
+              <>
+                {/* Filters */}
+                <LogFilters
+                  filters={filters}
+                  onFilterChange={handleFilterChange}
+                  models={viewMode === 'session' ? (sessionModels || []) : models}
+                  totalRecords={pagination.total}
+                  viewMode={viewMode}
+                />
+
+                {/* Timeline */}
+                <div className="flex-1 overflow-y-auto">
+                  {loading && entries.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary mb-2" />
+                      <span className="text-xs">加载对话轮次中...</span>
+                    </div>
+                  ) : entries.length === 0 ? (
+                    <div className="text-center py-12 text-xs text-muted-foreground border border-dashed rounded-xl m-4 p-4">
+                      没有找到匹配的记录
+                    </div>
+                  ) : (
+                    <ConversationTimeline
+                      entries={entries}
+                      selectedEntry={selectedEntry}
+                      onEntrySelect={handleEntrySelect}
+                    />
                   )}
                 </div>
-              )}
-            </div>
-          )}
 
-          {/* Loading State */}
-          {loading && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-            <p className="text-muted-foreground">加载数据中...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Error State */}
-      {error && !loading && viewMode !== 'sessions' && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center max-w-md">
-            <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-            <h2 className="text-lg font-semibold mb-2">加载失败</h2>
-            <p className="text-muted-foreground">{error}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content */}
-      {!loading && !error && entries.length > 0 && viewMode !== 'sessions' && (
-        <div className="flex-1 flex overflow-hidden">
-          {/* 左侧时间轴 */}
-          <div className="w-80 border-r bg-card flex flex-col">
-            <div className="flex-1 overflow-y-auto">
-              <ConversationTimeline
-                entries={entries}
-                selectedEntry={selectedEntry}
-                onEntrySelect={handleEntrySelect}
-              />
-            </div>
-
-            {/* 加载更多按钮 */}
-            {pagination.hasMore && (
-              <div className="p-3 border-t bg-card">
-                <button
-                  onClick={loadMore}
-                  disabled={loading}
-                  className="w-full px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                >
-                  {loading ? '加载中...' : `加载更多 (剩余 ${pagination.total - entries.length} 条)`}
-                </button>
-              </div>
-            )}
-
-            {/* 分页信息 */}
-            <div className="px-3 py-2 border-t bg-muted/30 text-xs text-center text-muted-foreground">
-              显示 {entries.length} / {pagination.total.toLocaleString()} 条记录
-            </div>
-          </div>
-
-          {/* 右侧详情面板 */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {selectedEntry && (
-              <>
-                {/* Token 统计栏 */}
-                <div className="border-b bg-muted/30 p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold">Token 统计</h3>
+                {/* Pagination */}
+                {pagination.hasMore && entries.length > 0 && (
+                  <div className="p-3 border-t bg-card flex-shrink-0">
                     <button
-                      onClick={() => setDialogOpen(true)}
-                      className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-background hover:bg-muted transition-colors"
+                      onClick={loadMore}
+                      disabled={loading}
+                      className="w-full py-2.5 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border border-dashed border-primary/20 rounded-xl disabled:opacity-50 transition-all flex items-center justify-center gap-1.5"
                     >
-                      <BarChart3 className="w-4 h-4" />
-                      详细图表
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          加载中...
+                        </>
+                      ) : (
+                        `加载更多 (余 ${pagination.total - entries.length} 条)`
+                      )}
                     </button>
                   </div>
-                  <TokenStats
-                    currentEntry={selectedEntry}
-                    totalStats={totalStats}
-                    entriesCount={entries.length}
-                  />
-                </div>
+                )}
 
-                {/* 详情内容 */}
-                <div className="flex-1 overflow-y-auto">
-                  <ContextDetailPanel
-                    entry={selectedEntry}
-                    entries={entries}
-                  />
+                <div className="px-3 py-2 border-t bg-muted/20 text-[10px] text-center text-muted-foreground font-mono flex-shrink-0">
+                  显示 {entries.length} / {pagination.total.toLocaleString()} 条记录
                 </div>
               </>
             )}
           </div>
         </div>
-      )}
 
-      {/* Empty State */}
-      {!loading && !error && entries.length === 0 && viewMode !== 'sessions' && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Database className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-lg font-semibold mb-2">暂无数据</h2>
-            <p className="text-muted-foreground">
-              {viewMode === 'session'
-                ? '该会话中没有日志记录'
-                : Object.values(filters).some((v) => v !== null)
-                ? '没有符合筛选条件的记录，请尝试调整筛选条件'
-                : '数据库中暂无日志记录'}
-            </p>
-            {viewMode === 'all' && Object.values(filters).some((v) => v !== null) && (
-              <button
-                onClick={() => handleFilterChange({ model: null, status: null, startDate: null, endDate: null })}
-                className="mt-4 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-              >
-                清除筛选条件
-              </button>
-            )}
-          </div>
+        {/* Right Content Pane (Detailed Context & Analysis) */}
+        <div className="flex-1 flex flex-col overflow-hidden bg-muted/10">
+          {viewMode === 'sessions' && !selectedSessionId ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-muted/10">
+              <div className="p-5 bg-primary/10 rounded-2xl mb-4 text-primary animate-pulse">
+                <Users className="w-10 h-10" />
+              </div>
+              <h2 className="text-lg font-bold text-foreground mb-2">对话会话浏览器</h2>
+              <p className="text-xs text-muted-foreground max-w-sm">
+                左侧列表展示了系统中被归并的 Messages API 会话。选择任意会话，系统将在下方呈现该上下文完整的轮次记录、Token 消耗流及提示词差异。
+              </p>
+            </div>
+          ) : selectedEntry ? (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Token Stats Bar */}
+              <div className="border-b bg-card p-4 flex-shrink-0 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">实时 Token 与上下文消耗</h3>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      Request ID: {selectedEntry.id} • Model: {selectedEntry.model || 'Unknown'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setDialogOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-all shadow-sm"
+                  >
+                    <BarChart3 className="w-3.5 h-3.5 text-primary" />
+                    详细分析图表
+                  </button>
+                </div>
+                <TokenStats
+                  currentEntry={selectedEntry}
+                  totalStats={totalStats}
+                  entriesCount={entries.length}
+                />
+              </div>
+
+              {/* Detail Panel */}
+              <div className="flex-1 overflow-y-auto">
+                <ContextDetailPanel
+                  entry={selectedEntry}
+                  entries={entries}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-muted/10">
+              <Database className="w-10 h-10 text-muted-foreground mb-3 animate-pulse" />
+              <h2 className="text-sm font-semibold text-foreground mb-2">无选中的日志详情</h2>
+              <p className="text-xs text-muted-foreground">
+                请在左侧时间轴选择一条对话轮次来查看其请求载荷、上下文差异和 translation 详情。
+              </p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Database Status Footer */}
-      {viewMode !== 'sessions' && (
-        <DatabaseStatus
-          health={dbHealth}
-          loading={healthLoading}
-          onRefresh={loadHealth}
-          lastRefresh={lastHealthRefresh}
-        />
-      )}
-      </>
-      )}
+      <DatabaseStatus
+        health={dbHealth}
+        loading={healthLoading}
+        onRefresh={loadHealth}
+        lastRefresh={lastHealthRefresh}
+      />
 
-      {/* Token 统计弹窗 */}
+      {/* Token Stats Dialog */}
       <TokenStatsDialog
         totalStats={totalStats}
         open={dialogOpen}

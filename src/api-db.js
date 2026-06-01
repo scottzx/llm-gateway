@@ -141,7 +141,10 @@ function registerDBRoutes(app, dbLogger) {
         offset = 0,
         startDate,
         endDate,
-        model
+        model,
+        search,
+        sortBy,
+        sortOrder
       } = req.query;
 
       const result = dbLogger.getSessions({
@@ -149,7 +152,10 @@ function registerDBRoutes(app, dbLogger) {
         offset: parseInt(offset) || 0,
         startDate,
         endDate,
-        model
+        model,
+        search,
+        sortBy,
+        sortOrder
       });
 
       res.json(result);

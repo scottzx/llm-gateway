@@ -129,6 +129,9 @@ export async function fetchDBSessions(options = {}) {
   if (options.startDate) params.append('startDate', options.startDate);
   if (options.endDate) params.append('endDate', options.endDate);
   if (options.model) params.append('model', options.model);
+  if (options.search) params.append('search', options.search);
+  if (options.sortBy) params.append('sortBy', options.sortBy);
+  if (options.sortOrder) params.append('sortOrder', options.sortOrder);
 
   const response = await fetch(`${DB_API_BASE}/sessions?${params}`);
   if (!response.ok) {
