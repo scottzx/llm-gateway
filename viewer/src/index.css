@@ -150,16 +150,7 @@ code {
   @apply px-1.5 py-0.5 rounded bg-muted dark:bg-muted/80 text-[12.5px] text-pink-600 dark:text-pink-400 font-mono font-semibold;
 }
 .prose-custom pre {
-  background: linear-gradient(to bottom, #f4f4f5 0px, #f4f4f5 44px, #fafafa 44px, #fafafa 100%);
-  border: 1px solid #e4e4e7;
-  color: #27272a;
-  @apply rounded-xl px-4 pt-11 pb-4 overflow-x-auto my-3 text-[11px] leading-relaxed font-mono shadow-inner select-all relative;
-}
-
-.dark .prose-custom pre {
-  background: linear-gradient(to bottom, #18181b 0px, #18181b 44px, #09090b 44px, #09090b 100%);
-  border: 1px solid #27272a;
-  color: #e4e4e7;
+  @apply bg-zinc-950 text-zinc-100 dark:bg-black dark:text-zinc-200 border border-zinc-800/80 rounded-xl p-4 overflow-x-auto my-3 text-[11px] leading-relaxed font-mono shadow-inner select-all relative;
 }
 
 .prose-custom pre code {
