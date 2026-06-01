@@ -103,9 +103,13 @@ function Markdown({ content, className = '' }) {
       const toolbar = document.createElement('div');
       toolbar.className = 'code-toolbar absolute right-2.5 top-2.5 z-20 flex items-center gap-1.5 opacity-0 group-hover/pre:opacity-100 transition-opacity duration-200 select-none';
 
-      // 4. 创建换行开关按钮
+      // 4. 定义统一自适应按钮类名
+      const btnDefaultClass = 'p-1.5 border rounded-lg transition-all shadow-sm flex items-center justify-center bg-white dark:bg-zinc-900/80 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700/50 hover:text-zinc-800 dark:hover:text-zinc-250 hover:bg-zinc-50 dark:hover:bg-zinc-800';
+      const btnActiveClass = 'p-1.5 border rounded-lg transition-all shadow-sm flex items-center justify-center bg-primary/15 text-primary border-primary/30';
+
+      // 5. 创建换行开关按钮
       const wrapBtn = document.createElement('button');
-      wrapBtn.className = 'p-1.5 border rounded-lg transition-all shadow-sm flex items-center justify-center bg-primary/20 text-primary border-primary/30';
+      wrapBtn.className = btnActiveClass;
       wrapBtn.title = '切换自动换行 (Word Wrap)';
       wrapBtn.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-wrap-text"><line x1="3" x2="21" y1="6" y2="6"/><path d="M3 12h15a3 3 0 1 1 0 6h-4m-2-2-2 2 2 2"/><line x1="3" x2="10" y1="18" y2="18"/></svg>
@@ -120,17 +124,17 @@ function Markdown({ content, className = '' }) {
         if (isWrapped) {
           pre.classList.remove('whitespace-pre', 'overflow-x-auto');
           pre.classList.add('whitespace-pre-wrap', 'break-all');
-          wrapBtn.className = 'p-1.5 border rounded-lg transition-all shadow-sm flex items-center justify-center bg-primary/20 text-primary border-primary/30';
+          wrapBtn.className = btnActiveClass;
         } else {
           pre.classList.remove('whitespace-pre-wrap', 'break-all');
           pre.classList.add('whitespace-pre', 'overflow-x-auto');
-          wrapBtn.className = 'p-1.5 border rounded-lg transition-all shadow-sm flex items-center justify-center bg-zinc-900/80 text-zinc-400 border-zinc-700/50 hover:text-zinc-200 hover:bg-zinc-800';
+          wrapBtn.className = btnDefaultClass;
         }
       });
 
-      // 5. 创建独立复制代码按钮
+      // 6. 创建独立复制代码按钮
       const copyBtn = document.createElement('button');
-      copyBtn.className = 'p-1.5 border rounded-lg transition-all shadow-sm flex items-center justify-center bg-zinc-900/80 text-zinc-400 border-zinc-700/50 hover:text-zinc-200 hover:bg-zinc-800';
+      copyBtn.className = btnDefaultClass;
       copyBtn.title = '复制当前代码';
       copyBtn.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
@@ -275,13 +279,13 @@ function FormatParamValue({ value }) {
     return (
       <div className="relative group/code mt-1 rounded-lg overflow-hidden border border-zinc-800">
         <div className="absolute right-2 top-2 z-10 opacity-0 group-hover/code:opacity-100 transition-opacity flex items-center gap-1.5">
-          {/* 自动换行开关按钮 */}
+          {/* 自动换行开关按钮 (自适应浅色/暗黑模式) */}
           <button
             onClick={() => setWordWrap(!wordWrap)}
             className={`p-1.5 border rounded-lg transition-all shrink-0 flex items-center justify-center shadow-sm ${
               wordWrap 
-                ? 'bg-primary/20 text-primary border-primary/30' 
-                : 'bg-zinc-900/80 text-zinc-400 border-zinc-700/50 hover:text-zinc-200 hover:bg-zinc-800'
+                ? 'bg-primary/15 text-primary border-primary/30' 
+                : 'bg-white dark:bg-zinc-900/80 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700/50 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800'
             }`}
             title="切换自动换行"
           >
@@ -289,8 +293,11 @@ function FormatParamValue({ value }) {
           </button>
           <CopyButton text={value} />
         </div>
-        <pre className={`text-[11px] font-mono bg-zinc-950 text-zinc-300 px-4 pt-9 pb-3 overflow-x-auto max-h-40 max-w-full scrollbar-thin select-all transition-all duration-200 ${
+        <pre className={`text-[11px] font-mono p-2.5 px-4 pt-9 pb-3 overflow-x-auto max-h-40 max-w-full scrollbar-thin select-all transition-all duration-200 border rounded-xl ${
           wordWrap ? 'whitespace-pre-wrap break-all' : 'whitespace-pre'
+        } ${
+          // 浅色模式下：头部 36px 浅灰渐变，正文极浅灰，深色字体；暗黑模式下：自适应深炭灰色渐变
+          'bg-gradient-to-b from-zinc-100 via-zinc-100 via-[36px] to-zinc-50/50 text-zinc-800 border-zinc-200 dark:from-zinc-900 dark:via-zinc-900 dark:via-[36px] dark:to-black dark:text-zinc-200 dark:border-zinc-800'
         }`}>
           {JSON.stringify(value, null, 2)}
         </pre>
@@ -800,26 +807,26 @@ function ContentBlock({ block, role }) {
           </div>
         </div>
 
-        {/* 高颜值终端（Mac 样式） */}
-        <div className="mt-2.5 rounded-xl overflow-hidden border border-zinc-800 shadow-md transition-shadow hover:shadow-lg">
-          {/* 终端头部栏 */}
-          <div className="bg-zinc-900 dark:bg-zinc-950 px-4 py-2 flex items-center justify-between border-b border-zinc-800/80">
+        {/* 高颜值终端（Mac 样式 - 支持主题自适应且层次错开） */}
+        <div className="mt-2.5 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-850 shadow-sm transition-shadow hover:shadow-md">
+          {/* 终端头部栏：浅色模式下为 bg-zinc-100 层次错开，暗黑下为 bg-zinc-900 */}
+          <div className="bg-zinc-100 dark:bg-zinc-900 px-4 py-2.5 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800/80">
             <div className="flex items-center gap-1.5 select-none">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]"></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]"></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56] opacity-90"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e] opacity-90"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f] opacity-90"></div>
             </div>
-            <span className="text-[10px] font-mono text-zinc-500 select-none">bash - tool_result.log</span>
+            <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 select-none">bash - tool_result.log</span>
             <div className="w-12"></div>
           </div>
 
-          {/* 终端内容区 */}
+          {/* 终端内容区：浅色下为 bg-zinc-50/40 与深色字，暗黑下为 bg-zinc-950 */}
           {isJson ? (
-            <pre className="text-[11px] font-mono bg-zinc-950 text-zinc-300 p-4 overflow-x-auto max-h-64 scrollbar-thin select-all leading-relaxed">
+            <pre className="text-[11px] font-mono bg-zinc-50/40 dark:bg-zinc-950 text-zinc-800 dark:text-zinc-300 p-4 overflow-x-auto max-h-64 scrollbar-thin select-all leading-relaxed border-none rounded-none m-0">
               {typeof displayContent === 'object' ? JSON.stringify(displayContent, null, 2) : displayContent}
             </pre>
           ) : (
-            <div className="p-4 bg-zinc-950 text-zinc-300 font-mono text-[11px] whitespace-pre-wrap select-all leading-relaxed max-h-64 overflow-y-auto scrollbar-thin">
+            <div className="p-4 bg-zinc-50/40 dark:bg-zinc-950 text-zinc-800 dark:text-zinc-300 font-mono text-[11px] whitespace-pre-wrap select-all leading-relaxed max-h-64 overflow-y-auto scrollbar-thin border-none rounded-none">
               {displayContent}
             </div>
           )}
