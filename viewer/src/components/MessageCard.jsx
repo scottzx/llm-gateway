@@ -502,7 +502,7 @@ function SystemReminderBlock({ text }) {
   const showText = isLong ? `${text.substring(0, 250)}...` : text;
 
   return (
-    <div className="p-4 bg-gradient-to-r from-cyan-50/45 to-cyan-50/15 dark:from-cyan-950/15 dark:to-cyan-950/5 rounded-2xl border border-cyan-200/50 dark:border-cyan-800/40 border-l-4 border-l-cyan-500 group relative transition-all duration-300 hover:shadow-md">
+    <div className="p-4 bg-gradient-to-r from-cyan-50/20 to-cyan-50/5 dark:from-cyan-950/5 dark:to-cyan-950/2 rounded-2xl border border-cyan-100/60 dark:border-cyan-900/30 border-l-4 border-l-cyan-400/80 group relative transition-all duration-300 hover:shadow-md">
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-2">
           {/* 青色闪烁脉冲呼吸灯 */}
@@ -510,7 +510,7 @@ function SystemReminderBlock({ text }) {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
           </span>
-          <span className="text-xs font-bold text-cyan-850 dark:text-cyan-300 flex items-center gap-1.5">
+          <span className="text-xs font-bold text-cyan-900/90 dark:text-cyan-300 flex items-center gap-1.5">
             <Settings className="w-3.5 h-3.5 text-cyan-500 animate-spin-slow" />
             系统动态指令 (System Reminder)
           </span>
@@ -526,13 +526,13 @@ function SystemReminderBlock({ text }) {
       </div>
 
       {/* 原位预览同样渲染成漂亮的 Markdown 结构 */}
-      <Markdown content={showText} className="text-xs font-mono text-cyan-900/90 dark:text-cyan-200/90 pl-1" />
+      <Markdown content={showText} className="text-xs font-mono text-cyan-800/90 dark:text-cyan-300/90 pl-1" />
 
       {isLong && (
         <>
           <button
             onClick={() => setIsDialogOpen(true)}
-            className="text-[10px] text-cyan-650 dark:text-cyan-400 hover:underline mt-2.5 font-bold flex items-center gap-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 px-2 py-0.5 rounded transition-colors"
+            className="text-[10px] text-cyan-600 dark:text-cyan-400 hover:underline mt-2.5 font-bold flex items-center gap-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 px-2 py-0.5 rounded transition-colors"
           >
             <ExternalLink className="w-3 h-3" /> 查看完整指令
           </button>
@@ -725,17 +725,17 @@ function ContentBlock({ block, role }) {
     const displayText = translationState.isTranslated ? translationState.translatedText : block.thinking;
 
     return (
-      <div className="p-4 bg-gradient-to-r from-purple-50/30 to-purple-50/10 dark:from-purple-950/5 dark:to-purple-950/2 rounded-2xl border border-purple-200/50 dark:border-purple-900/40 border-l-4 border-l-purple-400 group relative transition-all duration-300 hover:shadow-md">
+      <div className="p-4 bg-gradient-to-r from-zinc-50/60 to-zinc-50/20 dark:from-zinc-900/10 dark:to-zinc-900/2 rounded-2xl border border-zinc-200/50 dark:border-zinc-800/40 border-l-4 border-l-zinc-400 dark:border-l-zinc-600 group relative transition-all duration-300 hover:shadow-md">
         <div className="flex items-center justify-between mb-2">
           <div
             className="flex items-center gap-2 cursor-pointer select-none"
             onClick={() => setThinkingExpanded(!thinkingExpanded)}
           >
-            <Brain className="w-4 h-4 text-purple-500 animate-pulse" />
-            <span className="text-xs font-bold text-purple-800 dark:text-purple-300">
+            <Brain className="w-4 h-4 text-zinc-400 dark:text-zinc-500 animate-pulse" />
+            <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
               深度思考与推理过程 (Reasoning)
             </span>
-            <span className="text-[10px] text-purple-600 dark:text-purple-400 font-normal">
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-normal">
               ({thinkingExpanded ? '点击收起' : '点击展开'})
             </span>
           </div>
@@ -752,7 +752,7 @@ function ContentBlock({ block, role }) {
         {thinkingExpanded && (
           <Markdown 
             content={displayText} 
-            className="text-xs md:text-sm text-purple-950/80 dark:text-purple-200/80 font-serif pl-3.5 border-l-2 border-purple-300/30 mt-2.5" 
+            className="text-xs md:text-sm text-zinc-650 dark:text-zinc-300 font-sans pl-3.5 border-l-2 border-zinc-200/40 dark:border-zinc-800/30 mt-2.5" 
           />
         )}
       </div>
@@ -829,14 +829,14 @@ function ContentBlock({ block, role }) {
     const isJson = typeof displayContent === 'object' || (typeof displayContent === 'string' && (displayContent.trim().startsWith('{') || displayContent.trim().startsWith('[')));
 
     return (
-      <div className="p-4 bg-amber-50/20 dark:bg-amber-950/5 rounded-2xl border border-amber-200/40 dark:border-amber-900/30 border-l-4 border-l-amber-400 group relative transition-all duration-300 hover:shadow-md">
+      <div className="p-4 bg-gradient-to-r from-amber-50/20 to-amber-50/5 dark:from-amber-950/5 dark:to-amber-950/2 rounded-2xl border border-amber-100/60 dark:border-amber-900/30 border-l-4 border-l-amber-400/80 group relative transition-all duration-300 hover:shadow-md">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Terminal className="w-4 h-4 text-amber-500" />
-            <span className="text-xs font-bold text-amber-800 dark:text-amber-300">
+            <Terminal className="w-4 h-4 text-amber-500/90" />
+            <span className="text-xs font-bold text-amber-900/90 dark:text-amber-300">
               工具返回结果 (Tool Output)
             </span>
-            <span className="text-[10px] text-muted-foreground font-mono bg-amber-100/50 dark:bg-amber-950/20 px-1.5 py-0.5 rounded border border-amber-200/30">
+            <span className="text-[10px] text-amber-700/80 dark:text-amber-400/80 font-mono bg-amber-50/30 dark:bg-amber-950/20 px-1.5 py-0.5 rounded border border-amber-100/40 dark:border-amber-900/30">
               ID: {block.tool_use_id}
             </span>
             {block.isError && (
