@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -15,6 +15,31 @@ function ContextDetailPanel({ entry, entries }) {
   // 找到前一条记录用于对比
   const currentIndex = entry.index;
   const prevEntry = currentIndex > 0 ? entries[currentIndex - 1] : null;
+
+  // 动态重组对话历史：将请求中的历史消息 + 本轮助手的最新回复合并展示在同一时间线中
+  const messagesWithResponse = useMemo(() => {
+    if (!entry || !entry.requestBody?.messages) return [];
+    
+    // 浅拷贝请求中的消息数组（包含之前的上下文和用户本次的新消息）
+    const msgs = [...entry.requestBody.messages];
+
+    // 如果请求成功响应，提取助手的回复内容并追加为最后一条消息，使“请求 + 回复”完美闭环
+    if (entry.responseStatus === 200) {
+      if (entry.responseType === 'sse' && entry.sseData?.contentBlocks?.length > 0) {
+        msgs.push({
+          role: 'assistant',
+          content: entry.sseData.contentBlocks
+        });
+      } else if (entry.responseBody?.content) {
+        msgs.push({
+          role: 'assistant',
+          content: entry.responseBody.content
+        });
+      }
+    }
+
+    return msgs;
+  }, [entry]);
 
   return (
     <div className="p-6">
@@ -45,12 +70,12 @@ function ContextDetailPanel({ entry, entries }) {
             <CardHeader>
               <CardTitle>对话消息</CardTitle>
               <CardDescription>
-                查看 Messages API 的消息结构，理解上下文如何在多轮对话中累积
+                查看完整的对话上下文交互，合并展示该轮的请求内容与助手的流式/静态回复卡片
               </CardDescription>
             </CardHeader>
             <CardContent>
               <MessageList
-                messages={entry.requestBody?.messages || []}
+                messages={messagesWithResponse}
                 tools={entry.requestBody?.tools || []}
                 system={entry.requestBody?.system || []}
               />

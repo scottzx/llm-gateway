@@ -7,14 +7,6 @@ const DB_API_BASE = `${API_BASE}/logs/db`;
 
 /**
  * 获取日志列表（支持过滤和分页）
- * @param {Object} filters - 查询过滤器
- * @param {number} filters.limit - 返回记录数限制
- * @param {number} filters.offset - 偏移量（用于分页）
- * @param {string} filters.startDate - 开始日期 (ISO 8601)
- * @param {string} filters.endDate - 结束日期 (ISO 8601)
- * @param {string} filters.model - 模型名称筛选
- * @param {string} filters.status - 状态筛选 (e.g., "200", "500")
- * @returns {Promise<Object>} { entries, pagination }
  */
 export async function fetchDBLogs(filters = {}) {
   const params = new URLSearchParams();
@@ -30,15 +22,14 @@ export async function fetchDBLogs(filters = {}) {
     throw new Error(`Failed to fetch database logs: ${response.statusText}`);
   }
   const data = await response.json();
+  if (data.entries) {
+    data.entries = data.entries.map(enrichEntry);
+  }
   return data;
 }
 
 /**
  * 获取 Token 统计
- * @param {Object} timeRange - 时间范围
- * @param {string} timeRange.startDate - 开始日期 (ISO 8601)
- * @param {string} timeRange.endDate - 结束日期 (ISO 8601)
- * @returns {Promise<Object>} Token 统计数据
  */
 export async function fetchDBTokenStats(timeRange = {}) {
   const params = new URLSearchParams();
@@ -55,10 +46,6 @@ export async function fetchDBTokenStats(timeRange = {}) {
 
 /**
  * 获取每小时统计
- * @param {Object} timeRange - 时间范围
- * @param {string} timeRange.startDate - 开始日期 (ISO 8601)
- * @param {string} timeRange.endDate - 结束日期 (ISO 8601)
- * @returns {Promise<Array>} 每小时统计数据
  */
 export async function fetchDBHourlyStats(timeRange = {}) {
   const params = new URLSearchParams();
@@ -75,7 +62,6 @@ export async function fetchDBHourlyStats(timeRange = {}) {
 
 /**
  * 获取模型列表
- * @returns {Promise<Array<string>>} 模型名称数组
  */
 export async function fetchDBModels() {
   const response = await fetch(`${DB_API_BASE}/models`);
@@ -88,8 +74,6 @@ export async function fetchDBModels() {
 
 /**
  * 获取特定会话的模型列表
- * @param {string} sessionId - 会话 ID
- * @returns {Promise<Array<string>>} 模型名称数组
  */
 export async function fetchSessionModels(sessionId) {
   const response = await fetch(`${DB_API_BASE}/sessions/${encodeURIComponent(sessionId)}/models`);
@@ -102,7 +86,6 @@ export async function fetchSessionModels(sessionId) {
 
 /**
  * 获取数据库健康状态
- * @returns {Promise<Object>} 数据库健康信息
  */
 export async function fetchDBHealth() {
   const response = await fetch(`${DB_API_BASE}/health`);
@@ -114,13 +97,6 @@ export async function fetchDBHealth() {
 
 /**
  * 获取会话列表
- * @param {Object} options - 查询选项
- * @param {number} options.limit - 返回记录数限制
- * @param {number} options.offset - 偏移量（用于分页）
- * @param {string} options.startDate - 开始日期 (ISO 8601)
- * @param {string} options.endDate - 结束日期 (ISO 8601)
- * @param {string} options.model - 模型名称筛选
- * @returns {Promise<Object>} { sessions, pagination }
  */
 export async function fetchDBSessions(options = {}) {
   const params = new URLSearchParams();
@@ -143,15 +119,6 @@ export async function fetchDBSessions(options = {}) {
 
 /**
  * 获取特定会话的日志
- * @param {string} sessionId - 会话 ID
- * @param {Object} options - 查询选项
- * @param {number} options.limit - 返回记录数限制
- * @param {number} options.offset - 偏移量（用于分页）
- * @param {string} options.startDate - 开始日期 (ISO 8601)
- * @param {string} options.endDate - 结束日期 (ISO 8601)
- * @param {string} options.model - 模型名称筛选
- * @param {string} options.status - 状态筛选 (e.g., "200", "500")
- * @returns {Promise<Object>} { entries, pagination }
  */
 export async function fetchDBSessionLogs(sessionId, options = {}) {
   const params = new URLSearchParams();
@@ -167,5 +134,111 @@ export async function fetchDBSessionLogs(sessionId, options = {}) {
     throw new Error(`Failed to fetch session logs: ${response.statusText}`);
   }
   const data = await response.json();
+  if (data.entries) {
+    data.entries = data.entries.map(enrichEntry);
+  }
   return data;
+}
+
+// ============================================================================
+// HELPERS FOR STREAMING & DATA ENRICHMENT
+// ============================================================================
+
+/**
+ * 解析 SSE 响应体字符串为结构化的事件和重建的内容块
+ */
+export function parseSSEData(responseBody) {
+  if (typeof responseBody !== 'string') return null;
+
+  const events = [];
+  const contentBlocks = [];
+  let inputTokens = 0;
+  let outputTokens = 0;
+
+  // 根据双换行切分为独立的事件数据块
+  const blocks = responseBody.split(/\n\n+/);
+  for (const block of blocks) {
+    if (!block.trim()) continue;
+
+    let eventType = 'message';
+    let eventData = null;
+
+    const lines = block.split('\n');
+    for (const line of lines) {
+      if (line.startsWith('event:')) {
+        eventType = line.slice(6).trim();
+      } else if (line.startsWith('data:')) {
+        try {
+          eventData = JSON.parse(line.slice(5).trim());
+        } catch (e) {
+          eventData = line.slice(5).trim();
+        }
+      }
+    }
+
+    if (eventData) {
+      events.push({ type: eventType, data: eventData });
+
+      // 解析事件流来提取 token 使用量和重建内容块
+      if (eventType === 'message_start' && eventData.message) {
+        if (eventData.message.usage) {
+          inputTokens = eventData.message.usage.input_tokens || 0;
+        }
+      } else if (eventType === 'content_block_start') {
+        const index = eventData.index || 0;
+        contentBlocks[index] = { ...(eventData.content_block || {}) };
+      } else if (eventType === 'content_block_delta') {
+        const index = eventData.index || 0;
+        if (!contentBlocks[index]) {
+          contentBlocks[index] = { type: 'text' };
+        }
+        const delta = eventData.delta;
+        if (delta) {
+          if (delta.type === 'text_delta' && delta.text) {
+            contentBlocks[index].text = (contentBlocks[index].text || '') + delta.text;
+          } else if (delta.type === 'thinking_delta' && delta.thinking) {
+            contentBlocks[index].thinking = (contentBlocks[index].thinking || '') + delta.thinking;
+            contentBlocks[index].type = 'thinking';
+          } else if (delta.type === 'signature_delta' && delta.signature) {
+            contentBlocks[index].signature = delta.signature;
+          }
+        }
+      } else if (eventType === 'message_delta') {
+        if (eventData.usage) {
+          inputTokens = eventData.usage.input_tokens || inputTokens || 0;
+          outputTokens = eventData.usage.output_tokens || 0;
+        }
+      }
+    }
+  }
+
+  // 过滤掉 undefined 的内容块
+  const filteredBlocks = contentBlocks.filter(b => b !== undefined);
+
+  return {
+    events,
+    contentBlocks: filteredBlocks,
+    inputTokens,
+    outputTokens
+  };
+}
+
+/**
+ * 为单个日志 entry 动态补充响应类型（responseType）和流式数据（sseData）
+ */
+export function enrichEntry(entry) {
+  if (!entry) return entry;
+
+  const isSSE =
+    (entry.responseHeaders?.['content-type']?.includes('event-stream')) ||
+    (typeof entry.responseBody === 'string' && entry.responseBody.includes('event:'));
+
+  if (isSSE) {
+    entry.responseType = 'sse';
+    entry.sseData = parseSSEData(entry.responseBody);
+  } else {
+    entry.responseType = typeof entry.responseBody === 'object' ? 'json' : 'raw';
+  }
+
+  return entry;
 }
