@@ -284,11 +284,11 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden text-foreground">
-      {/* Premium Header */}
-      <header className="border-b bg-card py-3 px-6 shadow-sm flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* 常驻侧栏折叠开关（商业级 IDE 开关，从根本上防止任何局部组件重叠） */}
+      {/* Premium Header - 大一统融合头部栏 */}
+      <header className="border-b bg-card py-3 px-6 shadow-sm flex-shrink-0 z-30">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* 常驻侧栏折叠开关（一键统一控制侧栏伸缩） */}
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
               className={`p-2 border rounded-xl transition-all shadow-sm flex items-center justify-center bg-background hover:bg-muted text-muted-foreground hover:text-foreground shrink-0 hover:scale-105 active:scale-95 ${
@@ -303,23 +303,69 @@ function App() {
               )}
             </button>
             
-            <div className="p-2.5 bg-primary/10 rounded-xl">
+            <div className="p-2.5 bg-primary/10 rounded-xl shrink-0">
               <Database className="w-5 h-5 text-primary" />
             </div>
-            <div>
-              <h1 className="text-md font-bold leading-tight">LLM Gateway 日志查看器</h1>
-              <p className="text-[11px] text-muted-foreground">
+            <div className="min-w-0 hidden sm:block">
+              <h1 className="text-md font-bold leading-tight truncate">LLM Gateway 日志查看器</h1>
+              <p className="text-[11px] text-muted-foreground truncate">
                 本地网关日志持久化 & 上下文管理面板
               </p>
             </div>
           </div>
 
-          {/* Header Actions */}
-          <div className="flex items-center gap-2">
+          {/* Header 右侧：完美融合 Request ID 状态、图标详细分析与刷新控制 */}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {selectedEntry && (
+              <div className="flex items-center gap-3 border-r pr-3 border-border/80 mr-1 min-w-0">
+                <div className="text-right hidden md:block min-w-0">
+                  <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5 justify-end">
+                    实时 Token 消耗
+                    {statsCollapsed && (
+                      <Badge variant="outline" className="text-[9px] py-0 font-normal text-primary border-primary/30 bg-primary/5 scale-90">
+                        已收起
+                      </Badge>
+                    )}
+                  </h3>
+                  <span className="text-[10px] text-muted-foreground font-mono truncate block" title={`Request ID: ${selectedEntry.id} • Model: ${selectedEntry.model}`}>
+                    ID: {selectedEntry.id} · Model: {selectedEntry.model || 'Unknown'}
+                  </span>
+                </div>
+
+                {/* 详细分析图表 */}
+                <button
+                  onClick={() => setDialogOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-background border rounded-lg text-xs font-semibold hover:bg-muted text-muted-foreground hover:text-foreground transition-all shadow-sm shrink-0"
+                  title="查看详细分析图表"
+                >
+                  <BarChart3 className="w-3.5 h-3.5 text-primary" />
+                  <span className="hidden sm:inline">分析图表</span>
+                </button>
+
+                {/* 折叠/展开 Token 统计面板 */}
+                <button
+                  onClick={() => setStatsCollapsed(!statsCollapsed)}
+                  className={`p-1.5 border rounded-lg transition-colors shrink-0 ${
+                    statsCollapsed 
+                      ? 'bg-background text-muted-foreground border-border hover:bg-muted' 
+                      : 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20'
+                  }`}
+                  title={statsCollapsed ? "展开 Token 数据条" : "收起 Token 数据条"}
+                >
+                  {statsCollapsed ? (
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* 常驻刷新数据按钮 */}
             <button
               onClick={handleRefresh}
               disabled={loading}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-background border rounded-lg text-xs font-semibold hover:bg-muted transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-background border rounded-lg text-xs font-semibold hover:bg-muted transition-colors disabled:opacity-50 shrink-0"
               title="刷新数据"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -363,19 +409,11 @@ function App() {
                 >
                   返回全部
                 </button>
-                {/* 侧栏顶部的“收起”控制按钮，高交互感且百分百不重叠 */}
-                <button
-                  onClick={() => setSidebarCollapsed(true)}
-                  className="p-1.5 hover:bg-muted border rounded-lg transition-colors text-muted-foreground hover:text-foreground shrink-0"
-                  title="收起侧边栏"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
               </div>
             </div>
           ) : (
-            <div className="p-3 border-b bg-card flex-shrink-0 flex items-center gap-2">
-              <div className="flex-1 flex bg-muted p-1 rounded-xl">
+            <div className="p-3 border-b bg-card flex-shrink-0">
+              <div className="flex bg-muted p-1 rounded-xl">
                 <button
                   onClick={() => {
                     setViewMode('all');
@@ -403,14 +441,6 @@ function App() {
                   💬 对话会话
                 </button>
               </div>
-              {/* 侧栏顶部的“收起”控制按钮，高交互感且百分百不重叠 */}
-              <button
-                onClick={() => setSidebarCollapsed(true)}
-                className="p-1.5 hover:bg-muted border rounded-lg transition-colors text-muted-foreground hover:text-foreground shrink-0"
-                title="收起侧边栏"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
             </div>
           )}
 
@@ -482,20 +512,9 @@ function App() {
         </div>
 
         {/* Right Content Pane (Detailed Context & Analysis) */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-muted/10 relative">
-          {/* Notion 风格：屏幕左侧边缘贴边半圆形展开拉手，在垂直中段，绝对不会发生任何顶部 Token 栏重叠！ */}
-          {sidebarCollapsed && (
-            <button
-              onClick={() => setSidebarCollapsed(false)}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-40 w-5 h-20 bg-primary/10 hover:bg-primary/20 border border-l-0 border-primary/20 rounded-r-2xl shadow-md flex items-center justify-center text-primary transition-all duration-200 hover:w-6 hover:scale-105 active:scale-95 group/handle"
-              title="展开侧边栏"
-            >
-              <ChevronRight className="w-4 h-4 text-primary animate-pulse group-hover/handle:scale-125 transition-transform" />
-            </button>
-          )}
-
+        <div className="flex-1 flex flex-col overflow-hidden bg-muted/10">
           {viewMode === 'sessions' && !selectedSessionId ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-muted/10">
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-muted/10 animate-fadeIn">
               <div className="p-5 bg-primary/10 rounded-2xl mb-4 text-primary animate-pulse">
                 <Users className="w-10 h-10" />
               </div>
@@ -505,58 +524,17 @@ function App() {
               </p>
             </div>
           ) : selectedEntry ? (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Token Stats Bar (具有折叠与展开功能) */}
-              <div className="border-b bg-card p-4 flex-shrink-0 shadow-sm transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="min-w-0">
-                      <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                        实时 Token 与上下文消耗
-                        {statsCollapsed && (
-                          <Badge variant="outline" className="text-[9px] py-0 font-normal origin-left scale-90 text-primary border-primary/30 bg-primary/5">
-                            已收起
-                          </Badge>
-                        )}
-                      </h3>
-                      <span className="text-[10px] text-muted-foreground font-mono truncate block" title={`Request ID: ${selectedEntry.id} • Model: ${selectedEntry.model || 'Unknown'}`}>
-                        Request ID: {selectedEntry.id} • Model: {selectedEntry.model || 'Unknown'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => setDialogOpen(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-all shadow-sm"
-                    >
-                      <BarChart3 className="w-3.5 h-3.5 text-primary" />
-                      详细分析图表
-                    </button>
-                    <button
-                      onClick={() => setStatsCollapsed(!statsCollapsed)}
-                      className="p-1.5 hover:bg-muted border rounded-lg transition-colors flex-shrink-0 text-muted-foreground hover:text-foreground bg-card shadow-sm"
-                      title={statsCollapsed ? "展开统计数据" : "折叠统计数据"}
-                    >
-                      {statsCollapsed ? (
-                        <ChevronDown className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronUp className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                  </div>
+            <div className="flex-1 flex flex-col overflow-hidden animate-fadeIn">
+              {/* 如果没有折叠，在最上方展示纯粹、精致的 TokenStats 横向数据窄带，绝无文字重合 */}
+              {!statsCollapsed && (
+                <div className="border-b bg-card px-6 py-3.5 flex-shrink-0 shadow-sm animate-slideDown z-10">
+                  <TokenStats
+                    currentEntry={selectedEntry}
+                    totalStats={totalStats}
+                    entriesCount={entries.length}
+                  />
                 </div>
-
-                {/* 仅在展开状态下展示 TokenStats 卡片 */}
-                {!statsCollapsed && (
-                  <div className="mt-3.5 animate-fadeIn">
-                    <TokenStats
-                      currentEntry={selectedEntry}
-                      totalStats={totalStats}
-                      entriesCount={entries.length}
-                    />
-                  </div>
-                )}
-              </div>
+              )}
 
               {/* Detail Panel */}
               <div className="flex-1 overflow-y-auto">
@@ -567,7 +545,7 @@ function App() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-muted/10">
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-muted/10 animate-fadeIn">
               <Database className="w-10 h-10 text-muted-foreground mb-3 animate-pulse" />
               <h2 className="text-sm font-semibold text-foreground mb-2">无选中的日志详情</h2>
               <p className="text-xs text-muted-foreground">
