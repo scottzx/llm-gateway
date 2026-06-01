@@ -20,11 +20,13 @@ import {
   CornerDownRight, 
   ChevronDown, 
   ChevronUp,
-  ExternalLink
+  ExternalLink,
+  WrapText
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import ToolInfoDialog from './ToolInfoDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from './ui/dialog';
+import { marked } from 'marked';
 
 /**
  * 极简精致的“复制按钮”组件，带 1.5s 状态恢复
@@ -60,8 +62,117 @@ function CopyButton({ text }) {
 }
 
 /**
+ * 专为智能体日志打造的高颜值、支持暗黑模式的 Markdown 安全渲染器
+ * 支持代码块自动换行、手动换行切换 (Word-Wrap Toggle) 以及代码独立复制
+ */
+function Markdown({ content, className = '' }) {
+  const containerRef = useRef(null);
+
+  if (!content) return null;
+
+  let rawHtml = '';
+  try {
+    // 使用 marked 将 markdown 切分为 HTML 格式
+    rawHtml = marked.parse(content, {
+      gfm: true,
+      breaks: true
+    });
+  } catch (err) {
+    console.error('[Markdown] Parsing failed: ', err);
+    rawHtml = content;
+  }
+
+  // 利用 React useEffect 动态扫描渲染出的代码 pre 容器，动态挂载换行及复制面板
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const pres = container.querySelectorAll('pre');
+    pres.forEach((pre) => {
+      // 避免重复追加面板
+      if (pre.querySelector('.code-toolbar')) return;
+
+      // 1. 设置 pre 容器布局样式类（默认自动换行）
+      pre.classList.add('relative', 'group/pre', 'whitespace-pre-wrap', 'break-all');
+
+      // 2. 获取代码内容
+      const codeEl = pre.querySelector('code');
+      const codeText = codeEl ? codeEl.innerText : pre.innerText;
+
+      // 3. 创建顶层浮动控制栏
+      const toolbar = document.createElement('div');
+      toolbar.className = 'code-toolbar absolute right-2.5 top-2.5 z-20 flex items-center gap-1.5 opacity-0 group-hover/pre:opacity-100 transition-opacity duration-200 select-none';
+
+      // 4. 创建换行开关按钮
+      const wrapBtn = document.createElement('button');
+      wrapBtn.className = 'p-1.5 border rounded-lg transition-all shadow-sm flex items-center justify-center bg-primary/20 text-primary border-primary/30';
+      wrapBtn.title = '切换自动换行 (Word Wrap)';
+      wrapBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-wrap-text"><line x1="3" x2="21" y1="6" y2="6"/><path d="M3 12h15a3 3 0 1 1 0 6h-4m-2-2-2 2 2 2"/><line x1="3" x2="10" y1="18" y2="18"/></svg>
+      `;
+
+      let isWrapped = true;
+      wrapBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        isWrapped = !isWrapped;
+
+        if (isWrapped) {
+          pre.classList.remove('whitespace-pre', 'overflow-x-auto');
+          pre.classList.add('whitespace-pre-wrap', 'break-all');
+          wrapBtn.className = 'p-1.5 border rounded-lg transition-all shadow-sm flex items-center justify-center bg-primary/20 text-primary border-primary/30';
+        } else {
+          pre.classList.remove('whitespace-pre-wrap', 'break-all');
+          pre.classList.add('whitespace-pre', 'overflow-x-auto');
+          wrapBtn.className = 'p-1.5 border rounded-lg transition-all shadow-sm flex items-center justify-center bg-zinc-900/80 text-zinc-400 border-zinc-700/50 hover:text-zinc-200 hover:bg-zinc-800';
+        }
+      });
+
+      // 5. 创建独立复制代码按钮
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'p-1.5 border rounded-lg transition-all shadow-sm flex items-center justify-center bg-zinc-900/80 text-zinc-400 border-zinc-700/50 hover:text-zinc-200 hover:bg-zinc-800';
+      copyBtn.title = '复制当前代码';
+      copyBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+      `;
+
+      copyBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          await navigator.clipboard.writeText(codeText);
+          copyBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-circle text-green-550"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          `;
+          setTimeout(() => {
+            copyBtn.innerHTML = `
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+            `;
+          }, 1500);
+        } catch (err) {
+          console.error(err);
+        }
+      });
+
+      // 6. 装配控制栏
+      toolbar.appendChild(wrapBtn);
+      toolbar.appendChild(copyBtn);
+      pre.appendChild(toolbar);
+    });
+  }, [rawHtml]);
+
+  return (
+    <div
+      ref={containerRef}
+      className={`prose-custom select-all break-words leading-relaxed ${className}`}
+      dangerouslySetInnerHTML={{ __html: rawHtml }}
+    />
+  );
+}
+
+/**
  * 专为超长提示词/动态指令设计的精美 Dialog 详情弹窗
- * 内置独立一键翻译和复制交互，维护主页面的排版稳定性
+ * 内置独立一键翻译和复制交互，支持华丽的 Markdown 排版
  */
 function TextDetailDialog({ title, icon, text, open, onOpenChange }) {
   const [translationState, setTranslationState] = useState({
@@ -142,11 +253,9 @@ function TextDetailDialog({ title, icon, text, open, onOpenChange }) {
           </div>
         </DialogHeader>
 
-        {/* 弹窗内容：支持纵向流畅滚动的极客文本框 */}
+        {/* 弹窗内容：支持纵向流畅滚动的 Markdown 极客文本区 */}
         <div className="flex-1 overflow-y-auto pr-2 mt-4 scrollbar-thin select-all">
-          <pre className="text-xs md:text-sm font-mono text-foreground whitespace-pre-wrap leading-relaxed">
-            {displayText}
-          </pre>
+          <Markdown content={displayText} className="text-xs md:text-sm text-foreground" />
         </div>
       </DialogContent>
     </Dialog>
@@ -154,19 +263,35 @@ function TextDetailDialog({ title, icon, text, open, onOpenChange }) {
 }
 
 /**
- * 格式化参数值（处理复杂的 JSON 对象/数组，使其更易读）
+ * 格式化参数值（处理复杂的 JSON 对象/数组，支持手动切换换行）
  */
 function FormatParamValue({ value }) {
+  const [wordWrap, setWordWrap] = useState(true); // 默认开启自动换行
+
   if (value === null) return <span className="text-muted-foreground font-mono text-xs">null</span>;
   if (value === undefined) return <span className="text-muted-foreground font-mono text-xs">undefined</span>;
 
   if (typeof value === 'object') {
     return (
       <div className="relative group/code mt-1 rounded-lg overflow-hidden border border-zinc-800">
-        <div className="absolute right-2 top-2 z-10 opacity-0 group-hover/code:opacity-100 transition-opacity">
+        <div className="absolute right-2 top-2 z-10 opacity-0 group-hover/code:opacity-100 transition-opacity flex items-center gap-1.5">
+          {/* 自动换行开关按钮 */}
+          <button
+            onClick={() => setWordWrap(!wordWrap)}
+            className={`p-1.5 border rounded-lg transition-all shrink-0 flex items-center justify-center shadow-sm ${
+              wordWrap 
+                ? 'bg-primary/20 text-primary border-primary/30' 
+                : 'bg-zinc-900/80 text-zinc-400 border-zinc-700/50 hover:text-zinc-200 hover:bg-zinc-800'
+            }`}
+            title="切换自动换行"
+          >
+            <WrapText className="w-3.5 h-3.5" />
+          </button>
           <CopyButton text={value} />
         </div>
-        <pre className="text-[11px] font-mono bg-zinc-950 text-zinc-300 p-2.5 overflow-x-auto max-h-40 max-w-full scrollbar-thin select-all">
+        <pre className={`text-[11px] font-mono bg-zinc-950 text-zinc-300 px-4 pt-9 pb-3 overflow-x-auto max-h-40 max-w-full scrollbar-thin select-all transition-all duration-200 ${
+          wordWrap ? 'whitespace-pre-wrap break-all' : 'whitespace-pre'
+        }`}>
           {JSON.stringify(value, null, 2)}
         </pre>
       </div>
@@ -185,7 +310,7 @@ function FormatParamValue({ value }) {
 }
 
 /**
- * 系统提示词单项组件（带高档弹窗阅读逻辑和系统图标）
+ * 系统提示词单项组件（支持 Markdown 预览与弹窗详情模式）
  */
 function SystemPromptItem({ item, idx }) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -208,9 +333,10 @@ function SystemPromptItem({ item, idx }) {
           <CopyButton text={item.text} />
         </div>
       </div>
-      <p className="text-xs text-muted-foreground whitespace-pre-wrap font-sans leading-relaxed select-all">
-        {showText}
-      </p>
+      
+      {/* 预览区域同样地经过 Markdown 渲染 */}
+      <Markdown content={showText} className="text-xs text-muted-foreground leading-relaxed" />
+      
       {isLong && (
         <>
           <button
@@ -233,7 +359,7 @@ function SystemPromptItem({ item, idx }) {
 }
 
 /**
- * 独立的普通文本消息渲染卡片（带一键翻译和复制）
+ * 独立的普通文本消息渲染卡片（全面支持 Markdown、一键翻译和复制）
  */
 function PlainTextBlock({ text, bgClass, borderClass, accentBorder, iconColor, titleClass, contentClass }) {
   const [translationState, setTranslationState] = useState({
@@ -311,15 +437,15 @@ function PlainTextBlock({ text, bgClass, borderClass, accentBorder, iconColor, t
           <CopyButton text={displayText} />
         </div>
       </div>
-      <div className={`text-sm whitespace-pre-wrap leading-relaxed select-all font-sans ${contentClass}`}>
-        {displayText}
-      </div>
+      
+      {/* 划时代地将纯文本直接升级为 Premium Markdown 渲染 */}
+      <Markdown content={displayText} className={`text-xs md:text-sm select-all ${contentClass}`} />
     </div>
   );
 }
 
 /**
- * 独立的系统动态提醒卡片（System Reminder Block - 自带弹窗交互）
+ * 独立的系统动态提醒卡片（System Reminder Block - 支持 Markdown 预览与弹窗详情模式）
  */
 function SystemReminderBlock({ text }) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -340,7 +466,7 @@ function SystemReminderBlock({ text }) {
             系统动态指令 (System Reminder)
           </span>
           {text && (
-            <span className="text-[9px] text-cyan-600/70 dark:text-cyan-400/50 font-mono bg-cyan-100/30 dark:bg-cyan-900/20 px-1.5 py-0.2 rounded">
+            <span className="text-[9px] text-cyan-600/70 dark:text-cyan-400/50 font-mono bg-cyan-100/30 dark:bg-cyan-900/20 px-1.5 py-0.5 rounded">
               {text.length} 字符
             </span>
           )}
@@ -350,9 +476,8 @@ function SystemReminderBlock({ text }) {
         </div>
       </div>
 
-      <div className="text-xs font-mono text-cyan-900/90 dark:text-cyan-200/90 whitespace-pre-wrap leading-relaxed select-all pl-1">
-        {showText}
-      </div>
+      {/* 原位预览同样渲染成漂亮的 Markdown 结构 */}
+      <Markdown content={showText} className="text-xs font-mono text-cyan-900/90 dark:text-cyan-200/90 pl-1" />
 
       {isLong && (
         <>
@@ -541,7 +666,7 @@ function ContentBlock({ block, role }) {
     </button>
   );
 
-  // 1. 文本内容块 (TEXT) - 内部支持动态指令提取
+  // 1. 文本内容块 (TEXT) - 内部支持动态指令提取与 Markdown 渲染
   if (isTextMessage(block)) {
     return <RenderTextBlocks text={block.text} role={role} />;
   }
@@ -574,10 +699,12 @@ function ContentBlock({ block, role }) {
           </div>
         </div>
 
+        {/* 思考推理过程现在同样支持精美的 Markdown 高级渲染 */}
         {thinkingExpanded && (
-          <div className="text-xs text-purple-950/80 dark:text-purple-200/80 font-serif leading-relaxed whitespace-pre-wrap select-all pl-3.5 border-l-2 border-purple-300/30 mt-2.5">
-            {displayText}
-          </div>
+          <Markdown 
+            content={displayText} 
+            className="text-xs text-purple-950/80 dark:text-purple-200/80 font-serif pl-3.5 border-l-2 border-purple-300/30 mt-2.5" 
+          />
         )}
       </div>
     );
