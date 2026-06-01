@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../../lib/utils';
 
 const DialogContext = React.createContext({
@@ -18,15 +19,17 @@ function Dialog({ open, onOpenChange, children }) {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [open, onOpenChange]);
 
-  return (
+  if (!open) return null;
+
+  // Use createPortal to mount the modal directly to document.body, freeing it from parent container transformations
+  return createPortal(
     <DialogContext.Provider value={{ open, onOpenChange }}>
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <DialogOverlay onClick={() => onOpenChange(false)} />
-          {children}
-        </div>
-      )}
-    </DialogContext.Provider>
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+        <DialogOverlay onClick={() => onOpenChange(false)} />
+        {children}
+      </div>
+    </DialogContext.Provider>,
+    document.body
   );
 }
 
