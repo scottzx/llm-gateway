@@ -363,11 +363,19 @@ function App() {
                 >
                   返回全部
                 </button>
+                {/* 侧栏顶部的“收起”控制按钮，高交互感且百分百不重叠 */}
+                <button
+                  onClick={() => setSidebarCollapsed(true)}
+                  className="p-1.5 hover:bg-muted border rounded-lg transition-colors text-muted-foreground hover:text-foreground shrink-0"
+                  title="收起侧边栏"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           ) : (
-            <div className="p-3 border-b bg-card flex-shrink-0">
-              <div className="flex bg-muted p-1 rounded-xl">
+            <div className="p-3 border-b bg-card flex-shrink-0 flex items-center gap-2">
+              <div className="flex-1 flex bg-muted p-1 rounded-xl">
                 <button
                   onClick={() => {
                     setViewMode('all');
@@ -395,6 +403,14 @@ function App() {
                   💬 对话会话
                 </button>
               </div>
+              {/* 侧栏顶部的“收起”控制按钮，高交互感且百分百不重叠 */}
+              <button
+                onClick={() => setSidebarCollapsed(true)}
+                className="p-1.5 hover:bg-muted border rounded-lg transition-colors text-muted-foreground hover:text-foreground shrink-0"
+                title="收起侧边栏"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
 
@@ -467,6 +483,17 @@ function App() {
 
         {/* Right Content Pane (Detailed Context & Analysis) */}
         <div className="flex-1 flex flex-col overflow-hidden bg-muted/10 relative">
+          {/* Notion 风格：屏幕左侧边缘贴边半圆形展开拉手，在垂直中段，绝对不会发生任何顶部 Token 栏重叠！ */}
+          {sidebarCollapsed && (
+            <button
+              onClick={() => setSidebarCollapsed(false)}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-40 w-5 h-20 bg-primary/10 hover:bg-primary/20 border border-l-0 border-primary/20 rounded-r-2xl shadow-md flex items-center justify-center text-primary transition-all duration-200 hover:w-6 hover:scale-105 active:scale-95 group/handle"
+              title="展开侧边栏"
+            >
+              <ChevronRight className="w-4 h-4 text-primary animate-pulse group-hover/handle:scale-125 transition-transform" />
+            </button>
+          )}
+
           {viewMode === 'sessions' && !selectedSessionId ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-muted/10">
               <div className="p-5 bg-primary/10 rounded-2xl mb-4 text-primary animate-pulse">
