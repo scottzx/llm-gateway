@@ -26,7 +26,51 @@ import {
 import { useState, useRef, useEffect } from 'react';
 import ToolInfoDialog from './ToolInfoDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from './ui/dialog';
-import { marked } from 'marked';
+import { marked, Marked } from 'marked';
+
+// 自定义 HTML 渲染器，防止自定义 XML/HTML 标签 (如 <msg>, <intent> 等) 被浏览器作为 DOM 节点解析隐藏
+const customRenderer = {
+  html(token) {
+    const text = typeof token === 'string' ? token : (token.text || '');
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+};
+
+const customMarked = new Marked();
+customMarked.use({ renderer: customRenderer });
+
+// 智能转义代码块/行内代码外的自定义 XML/HTML 标签，以在 Markdown 渲染时完美保留换行与后续解析
+function escapeXmlOutsideCode(text) {
+  if (!text || typeof text !== 'string') return '';
+  
+  // 1. 按代码块 (```) 切分
+  const parts = text.split(/(```[\s\S]*?```)/g);
+  
+  return parts.map((part, index) => {
+    // 奇数项在代码块内，保持原样
+    if (index % 2 === 1) {
+      return part;
+    }
+    
+    // 偶数项在代码块外，需要进一步按行内代码 (`) 切分
+    const inlineParts = part.split(/(`[^`\n]*?`)/g);
+    return inlineParts.map((inlinePart, inlineIndex) => {
+      // 奇数项在行内代码内，保持原样
+      if (inlineIndex % 2 === 1) {
+        return inlinePart;
+      }
+      
+      // 偶数项在纯文本中，安全转义 HTML/XML 关键字符
+      return inlinePart
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }).join('');
+  }).join('');
+}
 
 /**
  * 极简精致的“复制按钮”组件，带 1.5s 状态恢复
@@ -72,8 +116,9 @@ function Markdown({ content, className = '' }) {
 
   let rawHtml = '';
   try {
-    // 使用 marked 将 markdown 切分为 HTML 格式
-    rawHtml = marked.parse(content, {
+    // 智能转义并保留普通文字的换行效果与标准 Markdown 元素解析
+    const escapedContent = escapeXmlOutsideCode(content);
+    rawHtml = customMarked.parse(escapedContent, {
       gfm: true,
       breaks: true
     });
@@ -707,7 +752,7 @@ function ContentBlock({ block, role }) {
         {thinkingExpanded && (
           <Markdown 
             content={displayText} 
-            className="text-xs text-purple-950/80 dark:text-purple-200/80 font-serif pl-3.5 border-l-2 border-purple-300/30 mt-2.5" 
+            className="text-xs md:text-sm text-purple-950/80 dark:text-purple-200/80 font-serif pl-3.5 border-l-2 border-purple-300/30 mt-2.5" 
           />
         )}
       </div>
