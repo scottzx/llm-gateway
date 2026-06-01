@@ -95,6 +95,11 @@ class DatabaseLogger {
    */
   log(entry) {
     try {
+      // 仅保留 POST /v1/messages 的聊天请求，其他请求直接过滤不记录到数据库中
+      if (entry.path !== '/v1/messages' || entry.method !== 'POST') {
+        return null;
+      }
+
       // Extract model from request body
       const model = entry.requestBody?.model || null;
 
@@ -514,10 +519,11 @@ class DatabaseLogger {
    */
   getSessionModels(sessionId) {
     try {
-      const stmt = this.db.prepare(
-        'SELECT DISTINCT model FROM chat_logs WHERE session_id = ? AND model IS NOT NULL ORDER BY model'
-      );
-      const rows = stmt.all(sessionId);
+      const query = sessionId === 'no-session'
+        ? 'SELECT DISTINCT model FROM chat_logs WHERE session_id IS NULL AND model IS NOT NULL ORDER BY model'
+        : 'SELECT DISTINCT model FROM chat_logs WHERE session_id = ? AND model IS NOT NULL ORDER BY model';
+      const stmt = this.db.prepare(query);
+      const rows = sessionId === 'no-session' ? stmt.all() : stmt.all(sessionId);
       return rows.map(r => r.model);
     } catch (error) {
       console.error('[DatabaseLogger] Get session models failed:', error.message);
@@ -547,7 +553,7 @@ class DatabaseLogger {
         sortOrder = 'DESC'
       } = options;
 
-      let whereConditions = ['session_id IS NOT NULL'];
+      let whereConditions = ["path = '/v1/messages'", "method = 'POST'"];
       let params = [];
 
       if (startDate) {
@@ -563,7 +569,7 @@ class DatabaseLogger {
         params.push(model);
       }
       if (search) {
-        whereConditions.push('session_id LIKE ?');
+        whereConditions.push("COALESCE(session_id, 'no-session') LIKE ?");
         params.push(`%${search}%`);
       }
 
@@ -583,7 +589,7 @@ class DatabaseLogger {
 
       const query = `
         SELECT
-          session_id,
+          COALESCE(session_id, 'no-session') as session_id,
           COUNT(*) as message_count,
           MIN(timestamp) as start_time,
           MAX(timestamp) as end_time,
@@ -594,7 +600,7 @@ class DatabaseLogger {
           MAX(id) as last_id
         FROM chat_logs
         WHERE ${whereClause}
-        GROUP BY session_id
+        GROUP BY COALESCE(session_id, 'no-session')
         ORDER BY ${orderByCol} ${orderDirection}
         LIMIT ? OFFSET ?
       `;
@@ -604,7 +610,7 @@ class DatabaseLogger {
 
       // Get total count
       const countQuery = `
-        SELECT COUNT(DISTINCT session_id) as count
+        SELECT COUNT(DISTINCT COALESCE(session_id, 'no-session')) as count
         FROM chat_logs
         WHERE ${whereClause}
       `;
@@ -655,8 +661,14 @@ class DatabaseLogger {
       } = options;
 
       // Build query with filters
-      let query = 'SELECT * FROM chat_logs WHERE session_id = ?';
-      const params = [sessionId];
+      let query;
+      let params = [];
+      if (sessionId === 'no-session') {
+        query = 'SELECT * FROM chat_logs WHERE session_id IS NULL';
+      } else {
+        query = 'SELECT * FROM chat_logs WHERE session_id = ?';
+        params.push(sessionId);
+      }
 
       // Date range filter
       if (startDate) {
@@ -700,8 +712,14 @@ class DatabaseLogger {
       const entries = this.db.prepare(query).all(...params);
 
       // Get total count for this session with filters
-      let countQuery = 'SELECT COUNT(*) as count FROM chat_logs WHERE session_id = ?';
-      const countParams = [sessionId];
+      let countQuery;
+      let countParams = [];
+      if (sessionId === 'no-session') {
+        countQuery = 'SELECT COUNT(*) as count FROM chat_logs WHERE session_id IS NULL';
+      } else {
+        countQuery = 'SELECT COUNT(*) as count FROM chat_logs WHERE session_id = ?';
+        countParams.push(sessionId);
+      }
 
       if (startDate) {
         countQuery += ' AND timestamp >= ?';

@@ -83,8 +83,8 @@ function SessionCard({ session, isSelected, onClick }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-1.5">
             <Hash className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-            <span className="text-xs font-mono font-medium text-muted-foreground truncate" title={session.sessionId}>
-              {session.sessionId}
+            <span className={`text-xs truncate ${session.sessionId === 'no-session' ? 'font-medium text-foreground' : 'font-mono font-medium text-muted-foreground'}`} title={session.sessionId}>
+              {session.sessionId === 'no-session' ? '常规/未分类代理日志' : session.sessionId}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

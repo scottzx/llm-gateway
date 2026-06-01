@@ -9,12 +9,36 @@
  * @returns {{user_id: string|null, session_id: string|null}}
  */
 function parseUserId(metadataUserId) {
-  if (!metadataUserId || typeof metadataUserId !== 'string') {
+  if (!metadataUserId) {
     return { user_id: null, session_id: null };
   }
 
-  // 匹配格式: user_xxx_account__session_yyy
-  // user_id 部分可能包含下划线，所以使用非贪婪匹配
+  // 如果本身就是个对象，直接提取
+  if (typeof metadataUserId === 'object') {
+    return {
+      user_id: metadataUserId.user_id || metadataUserId.account_uuid || metadataUserId.device_id || null,
+      session_id: metadataUserId.session_id || null
+    };
+  }
+
+  if (typeof metadataUserId !== 'string') {
+    return { user_id: null, session_id: null };
+  }
+
+  // 1. 尝试解析为 JSON 字符串
+  try {
+    const parsed = JSON.parse(metadataUserId);
+    if (parsed && typeof parsed === 'object') {
+      return {
+        user_id: parsed.user_id || parsed.account_uuid || parsed.device_id || null,
+        session_id: parsed.session_id || null
+      };
+    }
+  } catch (e) {
+    // 忽略解析错误，继续走正则匹配
+  }
+
+  // 2. 匹配传统格式: user_xxx_account__session_yyy
   const match = metadataUserId.match(/^user_(.+?)_account__session_(.+)$/);
 
   if (match) {
@@ -24,7 +48,7 @@ function parseUserId(metadataUserId) {
     };
   }
 
-  // 如果格式不匹配，返回 null
+  // 如果格式都不匹配，返回 null
   return { user_id: null, session_id: null };
 }
 

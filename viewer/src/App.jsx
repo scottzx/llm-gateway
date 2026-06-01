@@ -317,7 +317,7 @@ function App() {
                 </button>
                 <div className="min-w-0">
                   <h3 className="font-semibold text-xs text-foreground truncate" title={selectedSessionId}>
-                    会话: {selectedSessionId.slice(0, 12)}...
+                    {selectedSessionId === 'no-session' ? '常规/未分类代理日志' : `会话: ${selectedSessionId.slice(0, 12)}...`}
                   </h3>
                   <span className="text-[10px] text-muted-foreground">会话对话历史</span>
                 </div>
