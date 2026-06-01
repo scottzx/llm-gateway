@@ -14,7 +14,20 @@ import TokenStatsDialog from './components/TokenStatsDialog';
 import LogFilters from './components/LogFilters';
 import DatabaseStatus from './components/DatabaseStatus';
 import SessionSelector from './components/SessionSelector';
-import { AlertCircle, Loader2, BarChart3, Database, Users, ArrowLeft, RefreshCw } from 'lucide-react';
+import { 
+  AlertCircle, 
+  Loader2, 
+  BarChart3, 
+  Database, 
+  Users, 
+  ArrowLeft, 
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp
+} from 'lucide-react';
+import { Badge } from './components/ui/badge';
 
 function App() {
   // 视图模式: 'all' (全部日志), 'session' (特定会话的日志), 或 'sessions' (会话列表)
@@ -29,6 +42,10 @@ function App() {
 
   // 会话状态
   const [selectedSessionId, setSelectedSessionId] = useState(null);
+
+  // 侧边栏和 Token 统计栏折叠状态
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [statsCollapsed, setStatsCollapsed] = useState(false);
 
   // 过滤器状态
   const [filters, setFilters] = useState({
@@ -271,6 +288,21 @@ function App() {
       <header className="border-b bg-card py-3 px-6 shadow-sm flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
+            {/* 常驻侧栏折叠开关（商业级 IDE 开关，从根本上防止任何局部组件重叠） */}
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className={`p-2 border rounded-xl transition-all shadow-sm flex items-center justify-center bg-background hover:bg-muted text-muted-foreground hover:text-foreground shrink-0 hover:scale-105 active:scale-95 ${
+                sidebarCollapsed ? 'border-primary/40 bg-primary/5 text-primary' : 'border-border'
+              }`}
+              title={sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"}
+            >
+              {sidebarCollapsed ? (
+                <ChevronRight className="w-4 h-4 text-primary animate-pulse" />
+              ) : (
+                <ChevronLeft className="w-4 h-4" />
+              )}
+            </button>
+            
             <div className="p-2.5 bg-primary/10 rounded-xl">
               <Database className="w-5 h-5 text-primary" />
             </div>
@@ -298,13 +330,15 @@ function App() {
       </header>
 
       {/* Main Unified Dashboard Container */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         {/* Left Sidebar Pane (Unified Navigation, Filtering & Timeline) */}
-        <div className="w-[360px] border-r bg-card flex flex-col flex-shrink-0 overflow-hidden">
+        <div className={`border-r bg-card flex flex-col flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out relative ${
+          sidebarCollapsed ? 'w-0 opacity-0 border-r-0' : 'w-[360px] opacity-100'
+        }`}>
           {/* Tab Switcher / Session Header */}
           {viewMode === 'session' && selectedSessionId ? (
             <div className="p-3 border-b bg-primary/5 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
                 <button
                   onClick={() => {
                     setSelectedSessionId(null);
@@ -322,12 +356,14 @@ function App() {
                   <span className="text-[10px] text-muted-foreground">会话对话历史</span>
                 </div>
               </div>
-              <button
-                onClick={handleBackToAll}
-                className="text-[10px] text-primary hover:underline font-semibold flex-shrink-0"
-              >
-                返回全部
-              </button>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button
+                  onClick={handleBackToAll}
+                  className="text-[10px] text-primary hover:underline font-semibold"
+                >
+                  返回全部
+                </button>
+              </div>
             </div>
           ) : (
             <div className="p-3 border-b bg-card flex-shrink-0">
@@ -430,7 +466,7 @@ function App() {
         </div>
 
         {/* Right Content Pane (Detailed Context & Analysis) */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-muted/10">
+        <div className="flex-1 flex flex-col overflow-hidden bg-muted/10 relative">
           {viewMode === 'sessions' && !selectedSessionId ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-muted/10">
               <div className="p-5 bg-primary/10 rounded-2xl mb-4 text-primary animate-pulse">
@@ -443,28 +479,56 @@ function App() {
             </div>
           ) : selectedEntry ? (
             <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Token Stats Bar */}
-              <div className="border-b bg-card p-4 flex-shrink-0 shadow-sm">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">实时 Token 与上下文消耗</h3>
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      Request ID: {selectedEntry.id} • Model: {selectedEntry.model || 'Unknown'}
-                    </span>
+              {/* Token Stats Bar (具有折叠与展开功能) */}
+              <div className="border-b bg-card p-4 flex-shrink-0 shadow-sm transition-all duration-300">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="min-w-0">
+                      <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                        实时 Token 与上下文消耗
+                        {statsCollapsed && (
+                          <Badge variant="outline" className="text-[9px] py-0 font-normal origin-left scale-90 text-primary border-primary/30 bg-primary/5">
+                            已收起
+                          </Badge>
+                        )}
+                      </h3>
+                      <span className="text-[10px] text-muted-foreground font-mono truncate block" title={`Request ID: ${selectedEntry.id} • Model: ${selectedEntry.model || 'Unknown'}`}>
+                        Request ID: {selectedEntry.id} • Model: {selectedEntry.model || 'Unknown'}
+                      </span>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => setDialogOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-all shadow-sm"
-                  >
-                    <BarChart3 className="w-3.5 h-3.5 text-primary" />
-                    详细分析图表
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => setDialogOpen(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-all shadow-sm"
+                    >
+                      <BarChart3 className="w-3.5 h-3.5 text-primary" />
+                      详细分析图表
+                    </button>
+                    <button
+                      onClick={() => setStatsCollapsed(!statsCollapsed)}
+                      className="p-1.5 hover:bg-muted border rounded-lg transition-colors flex-shrink-0 text-muted-foreground hover:text-foreground bg-card shadow-sm"
+                      title={statsCollapsed ? "展开统计数据" : "折叠统计数据"}
+                    >
+                      {statsCollapsed ? (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
-                <TokenStats
-                  currentEntry={selectedEntry}
-                  totalStats={totalStats}
-                  entriesCount={entries.length}
-                />
+
+                {/* 仅在展开状态下展示 TokenStats 卡片 */}
+                {!statsCollapsed && (
+                  <div className="mt-3.5 animate-fadeIn">
+                    <TokenStats
+                      currentEntry={selectedEntry}
+                      totalStats={totalStats}
+                      entriesCount={entries.length}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Detail Panel */}
