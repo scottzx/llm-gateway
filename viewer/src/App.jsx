@@ -25,9 +25,12 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Info
 } from 'lucide-react';
 import { Badge } from './components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from './components/ui/dialog';
+import { formatTimestamp } from './lib/utils';
 
 function App() {
   // 视图模式: 'all' (全部日志), 'session' (特定会话的日志), 或 'sessions' (会话列表)
@@ -39,6 +42,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [metadataOpen, setMetadataOpen] = useState(false);
 
   // 会话状态
   const [selectedSessionId, setSelectedSessionId] = useState(null);
@@ -342,6 +346,16 @@ function App() {
                   <span className="hidden sm:inline">分析图表</span>
                 </button>
 
+                {/* 页面元数据按钮 */}
+                <button
+                  onClick={() => setMetadataOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-background border rounded-lg text-xs font-semibold hover:bg-muted text-muted-foreground hover:text-foreground transition-all shadow-sm shrink-0"
+                  title="查看会话元数据与基本信息"
+                >
+                  <Info className="w-3.5 h-3.5 text-primary" />
+                  <span className="hidden sm:inline">元数据</span>
+                </button>
+
                 {/* 折叠/展开 Token 统计面板 */}
                 <button
                   onClick={() => setStatsCollapsed(!statsCollapsed)}
@@ -570,7 +584,174 @@ function App() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />
+
+      {/* Metadata Dialog */}
+      <MetadataDialog
+        entry={selectedEntry}
+        open={metadataOpen}
+        onOpenChange={setMetadataOpen}
+      />
     </div>
+  );
+}
+
+/**
+ * MetadataDialog 组件，展示会话与 API 调用的全部元数据及基本信息
+ */
+function MetadataDialog({ entry, open, onOpenChange }) {
+  if (!entry) return null;
+
+  const requestBody = entry.requestBody || {};
+  const metadata = requestBody.metadata || {};
+
+  const cleanVal = (val) => {
+    if (typeof val === 'undefined' || val === null || val === '' || String(val).trim() === '') {
+      return 'N/A';
+    }
+    return String(val);
+  };
+
+  const getVal = (key) => {
+    return (
+      requestBody[key] || 
+      metadata[key] || 
+      requestBody.extra?.[key] || 
+      requestBody.coze_context?.[key] || 
+      entry[key]
+    );
+  };
+
+  let userId = getVal('user_id');
+  let sessionId = getVal('session_id');
+  let accountId = getVal('account_id') || getVal('account_uuid');
+  let groupId = getVal('group_id');
+  let senderUserId = getVal('sender_user_id');
+  let agentId = getVal('agent_id');
+  let deviceId = getVal('device_id');
+
+  // 深度解析 metadata.user_id 里面的 JSON string 或者传统格式
+  if (metadata.user_id) {
+    let parsed = null;
+    if (typeof metadata.user_id === 'object') {
+      parsed = metadata.user_id;
+    } else if (typeof metadata.user_id === 'string') {
+      try {
+        parsed = JSON.parse(metadata.user_id);
+      } catch (e) {
+        // 传统格式 user_{user_id}_account__session_{session_id}
+        const match = metadata.user_id.match(/^user_(.+?)_account__session_(.+)$/);
+        if (match) {
+          userId = match[1];
+          sessionId = match[2];
+        }
+      }
+    }
+
+    if (parsed && typeof parsed === 'object') {
+      userId = parsed.user_id || parsed.account_uuid || parsed.device_id || userId;
+      sessionId = parsed.session_id || sessionId;
+      accountId = parsed.account_id || parsed.account_uuid || accountId;
+      deviceId = parsed.device_id || deviceId;
+    }
+  }
+
+  // 兜底与清理
+  userId = cleanVal(userId);
+  sessionId = cleanVal(sessionId);
+  accountId = cleanVal(accountId);
+  groupId = cleanVal(groupId);
+  senderUserId = cleanVal(senderUserId);
+  agentId = cleanVal(agentId);
+  deviceId = cleanVal(deviceId);
+
+  const metadataList = [
+    {
+      category: 'API 请求信息',
+      items: [
+        { label: 'Request ID', value: entry.id, code: true },
+        { label: '调用模型 (Model)', value: entry.model || 'Unknown' },
+        { label: 'HTTP 方法/路径', value: `${entry.method || 'POST'} ${entry.path || '/v1/messages'}` },
+        { label: '请求时间', value: formatTimestamp(entry.timestamp) },
+        { label: '状态码', value: entry.responseStatus, badge: true, badgeVariant: entry.responseStatus >= 200 && entry.responseStatus < 300 ? 'default' : 'destructive' },
+        { label: '总响应耗时', value: entry.duration ? `${entry.duration} ms` : 'N/A' },
+        { label: '响应类型', value: entry.responseType === 'sse' ? 'SSE 流式响应' : entry.responseType === 'json' ? 'JSON 静态响应' : 'Raw 原始响应' },
+      ]
+    },
+    {
+      category: '对话与终端上下文元数据',
+      items: [
+        { label: '会话 ID (Session ID)', value: sessionId, code: true },
+        { label: '账号 ID (Account ID)', value: accountId, code: true },
+        { label: '群组 ID (Group ID)', value: groupId, code: true },
+        { label: '发送者 ID (Sender User ID)', value: senderUserId || userId, code: true },
+        { label: '智能体 ID (Agent ID)', value: agentId, code: true },
+        { label: '设备 ID (Device ID)', value: deviceId, code: true },
+      ]
+    },
+    {
+      category: 'Token 消耗与统计',
+      items: [
+        { label: '本轮输入 (Prompt Tokens)', value: `${entry.inputTokens || 0} tokens` },
+        { label: '本轮输出 (Completion Tokens)', value: `${entry.outputTokens || 0} tokens` },
+        { label: '本轮总计 (Total Tokens)', value: `${(entry.inputTokens || 0) + (entry.outputTokens || 0)} tokens`, highlight: true },
+      ]
+    }
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col p-6 rounded-2xl bg-card border border-border shadow-xl">
+        <DialogHeader className="pb-4 border-b">
+          <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
+            <Info className="w-5 h-5 text-primary animate-pulse" />
+            对话元数据与基本信息
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex-1 space-y-6 py-4 overflow-y-auto">
+          {metadataList.map((section) => (
+            <div key={section.category} className="space-y-3">
+              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider pl-1">
+                {section.category}
+              </h4>
+              <div className="bg-muted/30 dark:bg-muted/10 rounded-2xl border border-border/80 overflow-hidden divide-y divide-border/60">
+                {section.items.map((item) => (
+                  <div key={item.label} className="p-3.5 flex items-center justify-between gap-4 text-xs">
+                    <span className="text-muted-foreground font-medium shrink-0">
+                      {item.label}
+                    </span>
+                    <div className="text-right font-mono text-foreground break-all select-all min-w-0 max-w-[70%]">
+                      {item.badge ? (
+                        <Badge variant={item.badgeVariant}>{item.value}</Badge>
+                      ) : item.code ? (
+                        <code className="px-2 py-0.5 rounded bg-muted text-[11px] border border-border/50 text-foreground font-semibold font-mono block truncate" title={item.value}>
+                          {item.value}
+                        </code>
+                      ) : item.highlight ? (
+                        <span className="font-semibold text-primary text-sm font-sans">{item.value}</span>
+                      ) : (
+                        <span className="font-sans text-foreground">{item.value}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end pt-4 border-t shrink-0">
+          <DialogClose asChild>
+            <button
+              onClick={() => onOpenChange(false)}
+              className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/95 active:scale-95 text-xs font-semibold rounded-xl transition-all shadow-md shadow-primary/10"
+            >
+              关闭
+            </button>
+          </DialogClose>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
