@@ -1,5 +1,5 @@
 {
-  "name": "llm-gateway",
+  "name": "1gateway",
   "version": "1.0.0",
   "description": "本地网关服务 - 转发请求到目标URL",
   "main": "src/index.js",

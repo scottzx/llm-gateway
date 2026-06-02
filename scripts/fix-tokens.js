@@ -6,7 +6,7 @@
 const Database = require('better-sqlite3');
 const { extractUsageFromResponse } = require('../src/utils');
 
-const DB_PATH = process.env.DB_PATH || '/Users/scott/Documents/llm_gateway/data/chat-logs.db';
+const DB_PATH = process.env.DB_PATH || '/Users/scott/documents/01-开发项目/AI应用/1gateway/data/chat-logs.db';
 
 function fixTokens() {
   const db = new Database(DB_PATH);

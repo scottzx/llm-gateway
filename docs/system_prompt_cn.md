@@ -126,7 +126,7 @@ x-anthropic-billing-header: cc_version=2.1.44.dad; cc_entrypoint=cli; cch=fa148;
 ## 环境信息
 
 ```
-工作目录：/Users/scott/Documents/llm_gateway
+工作目录：/Users/scott/documents/01-开发项目/AI应用/1gateway
 是否为 git 仓库：是
 平台：darwin
 Shell：zsh

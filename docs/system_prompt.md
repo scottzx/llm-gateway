@@ -79,7 +79,7 @@ assistant: Clients are marked as failed in the connectToServer function in src/s
 
 Here is useful information about the environment you are running in:
 <env>
-Working directory: /Users/scott/Documents/llm_gateway
+Working directory: /Users/scott/documents/01-开发项目/AI应用/1gateway
 Is directory a git repo: Yes
 Platform: darwin
 Shell: zsh

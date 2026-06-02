@@ -206,7 +206,7 @@ app.all('/*', proxyMiddleware);
 const server = app.listen(PORT, () => {
   console.log(`
 ╔══════════════════════════════════════════════════════════╗
-║              LLM Gateway 服务已启动                      ║
+║              1gateway 服务已启动                         ║
 ╠══════════════════════════════════════════════════════════╣
 ║  端口:      ${PORT}                                       ║
 ║  目标URL:   ${TARGET_URL}                     ║

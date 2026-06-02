@@ -1,4 +1,4 @@
-# LLM Gateway
+# 1gateway
 
 本地网关服务，用于转发 HTTP 请求到目标 LLM API（OpenAI、Claude 等）。内置 SQLite 数据库日志存储、翻译服务和日志查看器。
 
@@ -367,7 +367,7 @@ http://localhost:3012/viewer/
 ## 项目结构
 
 ```
-llm_gateway/
+1gateway/
 ├── src/
 │   ├── index.js           # 主服务入口
 │   ├── db-logger.js       # SQLite 数据库日志记录器
